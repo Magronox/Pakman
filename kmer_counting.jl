@@ -5,6 +5,174 @@
 
 Deprecated
 
+
+
+function IS(G:: DefaultDict{DNASeq,macro_node},k::Int64,l::Int64,Alphabet::Vector{Char})
+    print("esesese")
+    # k is for kmer in the original graph_construction
+    # l is for the length of suffix/prefix at the current graph
+    ## Create independent set of G
+    I_set = Set()
+    #idx = 1
+    for (label,u) in G
+        confirmed = true
+        pre_neighs = []
+        succ_neighs = []
+        ### finding neighbors
+        x = extract_pred(label,k-1)
+        for c in Alphabet
+            temp = kmerge(c,x,k-2,false)
+            if temp in keys(G)
+                push!(pre_neighs,temp)
+            end
+        end
+        
+        x = extract_succ(label,k-1)
+        for c in Alphabet
+            temp = kmerge(c,x,k-2,true)
+            if temp in keys(G)
+                push!(succ_neighs,temp)
+            end
+        end
+        for neigh in pre_neighs
+            if vcat(label.bit1,label.bit2) < vcat(neigh.bit1,neigh.bit2)
+                confirmed = false
+            end
+        end
+        for neigh in succ_neighs
+            if vcat(label.bit1,label.bit2) < vcat(neigh.bit1,neigh.bit2)
+                confirmed = false
+            end
+        end
+        if confirmed == true
+            push!(I_set,label)
+            terminal_1_counts = (1,0)
+            terminal_1_prefix = false
+            terminal_2_counts = (1,0)
+            terminal_key = -1
+            likewise = false
+            reverse = false
+
+            for neigh in succ_neighs
+                print("2\n")
+                count_1 = 0
+                for (k,v) in G[neigh].prefixes
+
+                    if v == Terminal
+                        terminal_1_counts = G[neigh].prefix_counts[k]
+                        terminal_key = k
+                        terminal_1_prefix = true
+                    end
+                    
+                    idx = 0
+                    for (k0,v0) in G[label].prefixes
+                        
+                        if v0 == Terminal 
+                            if terminal_1_prefix
+                                terminal_2_counts = G[label].prefix_counts[k0]
+                                likewise = true
+                                break
+                            else
+                                terminal_2_counts = G[label].prefix_counts[k0]
+                                likewise = false
+                                reverse = true
+                            end
+
+                        end
+                        
+                        if length(G[label].prefixes)==1
+                            
+                            #G[neigh].prefixes[k] = kmerge(v,v0,l)
+                        else
+                            if idx== 0
+                                print(v,"\n")
+                                print(v.bit1,"\n")
+                                #G[neigh].prefixes[k] = kmerge(v,v0,l)
+                                idx += 1
+                                count_1 += 1
+                            else
+                                #G[neigh].prefixes[length(G[neigh].prefixes)+count_1] = kmerge(v,v0,l)
+                                count_1 += 1
+                            end
+                        end
+                    end
+                    
+                    #if length(G[label].prefixes)==1
+                    #    break
+                    #elseif
+                    #end
+                end
+
+            end
+            """
+            for neigh in pre_neighs
+                count_1 = 0
+
+                for (k,v) in G[neigh].suffixes
+                    idx = 0
+                    #if v == Terminal
+                    #    terminal_1_counts = G[neigh].suffix_counts[k]
+                    #    terminal_1_prefix = false #G[neigh].prefix_terminal
+                    #    terminal_key = k
+                    #end
+
+                    for (k0,v0) in G[label].suffixes
+                        #if v0 == Terminal
+                        #    terminal_2_counts = G[neigh].suffix_counts[k0]
+                        #    terminal_2_prefix = false #G[neigh].prefix_terminal
+                        #    likewise = true
+                        #    break
+                        #elseif v == Terminal
+                        #    break
+                        #end
+
+                        if length(G[label].suffixes)==1
+                            G[neigh].suffixes[k] = kmerge(v,v0)
+                            G[neigh].suffix_counts[]
+                        else
+                            if idx== 0
+                                G[neigh].suffixes[k] = kmerge(v,v0)
+                                idx += 1
+                                count_1 += 1
+
+                            else
+                                G[neigh].suffixes[length(G[neigh].prefixes)+count_1] = kmerge(v,v0)
+                                count_1 += 1
+                            end
+                        end
+                    end
+                            
+                end
+"""
+                #if reverse == true
+
+                #if likewise
+                #    final_terminal_counts = terminal_1_counts + terminal_2_counts
+                #    G[neigh].prefix_terminal = false
+                #    G[neigh].suffix_terminal = true
+                #    G[neigh].suffixes[terminal_key] = Terminal
+                #    G[neigh].suffix_counts[terminal_key] = final_terminal_counts
+                #else
+
+                
+
+        #    end
+        end
+    end
+    #for label in I_set
+    #    delete!(G,label)
+    #end
+    
+    #return G, length(G)-length(I_set)
+end
+
+
+
+
+
+
+
+
 using Distributed
 
 n = 4
