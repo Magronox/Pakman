@@ -105,6 +105,7 @@ function IS(G:: DefaultDict{DNASeq,macro_node},k::Int64,l::Int64,Alphabet::Vecto
 
             end
             """
+            """
             for neigh in pre_neighs
                 count_1 = 0
 
@@ -143,6 +144,7 @@ function IS(G:: DefaultDict{DNASeq,macro_node},k::Int64,l::Int64,Alphabet::Vecto
                     end
                             
                 end
+"""
 """
                 #if reverse == true
 
