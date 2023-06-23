@@ -61,8 +61,8 @@ Base.isless(p::Pair, q::Pair) =
         bit1 = BitArray{1}(undef, k+1)
         bit2 = BitArray{1}(undef, k+1)
         bit1[1:k] = kmer.bit1[65-k:64]
-        bit1[1:k] = kmer.bit2[65-k:64]
-        bit2[k+1], bit2[k+1] = char_to_int(c)
+        bit2[1:k] = kmer.bit2[65-k:64]
+        bit1[k+1], bit2[k+1] = char_to_int(c)
         lmer = kmer_seq(bit1,bit2,k+1)
     end
 
@@ -97,12 +97,12 @@ function graph_creator(kmer_list :: DefaultDict, Alphabet :: Vector{Char}, C :: 
                     u.prefix_counts[pid] = (kmer_list[temp],vc)
                     u.prefix_terminal = false
                     pid += 1
-                    
+
                 end
 
                 temp = kmerge(c,x_prime_key, true)
                 if temp in keys(kmer_list)
-                    push!(u.suffixes[sid],temp)
+                    push!(u.suffixes[sid],string_to_DNASeq(string(c))[1])
                     vc = ceil(Int64,kmer_list[temp]/C)
                     u.suffix_counts[sid] = (kmer_list[temp],vc)
                     u.suffix_terminal = false

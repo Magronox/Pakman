@@ -1,4 +1,3 @@
-###WIP
 
 include("graph_construction.jl")
 include("kmer_counting_v2.jl")
@@ -15,21 +14,30 @@ end
 @inline function succ_neigh(kmer:: DNASeq , lmer :: Vector{DNASeq})
     ## kmer is the key, lmer is the prefix
     #k::Int64, l :: Int64
-    k = kmer.len
+    k = kmer.len + 1
     bit1 = lmer[1].bit1
     bit2 = lmer[1].bit2
     l = (length(lmer)-1)*64 + lmer[1].len
     if l >= (k-1)
+        
+        if l == 0 
+            print("error")
+            return Nothing
+        end
         return kmer_seq(bit1[64-k+2:64],bit2[64-k+2:64],k-1)
     else
         rem = k-1-l
+        if l == 0 
+            print("error")
+            return Nothing
+        end
         return kmerge(kmer, lmer[1], rem, l)
     end
 end
 
 @inline function pred_neigh(kmer :: DNASeq , lmer :: Vector{DNASeq})
-    ## kmer is the key, lmer is the prefix
-    k = kmer.len
+    ## kmer is the macro_node key(actually k-1 mer), lmer is the prefix
+    k = kmer.len +1
     bit1 = lmer[1].bit1
     bit2 = lmer[1].bit2
     l = (length(lmer)-1)*64 + lmer[1].len
@@ -37,7 +45,7 @@ end
         return kmer_seq(bit1[1:k-1],bit2[1:k-1],k-1)
     else
         rem = k-1-l
-        return kmerge(lmer[1], kmer, l, rem)
+        return kmerge(lmer[1], DNASeq(kmer.bit1[64-kmer.len+1:64-kmer.len+rem],kmer.bit2[64-kmer.len+1:64-kmer.len+rem],rem), l, rem)
     end
 
 end
@@ -52,15 +60,15 @@ function kmerge(kmer_1::DNASeq, kmer_2::DNASeq, k::Int64, l :: Int64 )
         bit12 = kmer_1.bit2
         bit21 = kmer_2.bit1
         bit22 = kmer_2.bit2
-        return kmer_seq(vcat(bit11[64-k+1:64],bit21[64-l+1:64]), vcat(bit12[64-k+1:64],bit22[64-l+1:64]),k+l)
+        return kmer_seq(vcat(bit11[end-k+1:end],bit21[end-l+1:end]), vcat(bit12[end-k+1:end],bit22[end-l+1:end]),k+l)
     else
         bit11 = kmer_1.bit1
         bit12 = kmer_1.bit2
         bit21 = kmer_2.bit1
         bit22 = kmer_2.bit2
-        seq1 = kmer_seq(vcat(bit11[64-l+1:end],bit21),vcat(bit12[64-l+1:end],bit22),64)
+        seq1 = kmer_seq(vcat(bit11[end-l+1:end],bit21),vcat(bit12[end-l+1:end],bit22),64)
         seq2 = kmer_seq(bit11[1:64-l],bit12[1:64-l],64-l)
-        return [seq1, seq2]
+        return [seq2, seq1]
     end
 
 
@@ -84,13 +92,19 @@ end
 function kmerge(kmer_1::Vector{DNASeq}, kmer_2::DNASeq, k::Int64, l :: Int64 )
     k1 = k%64
     res = []
-
-    bit11 = kmer_1[end].bit1[l+1:end]
-    bit12 = kmer_1[end].bit2[l+1:end]
+    range = k>=(64-l) ? (l+1:64) : 64-k+1:64
+    bit11 = kmer_1[end].bit1[range]
+    bit12 = kmer_1[end].bit2[range]
     bit21 = kmer_2.bit1
     bit22 = kmer_2.bit2
-    pushfirst!(res, kmer_seq(vcat(bit11,bit21), vcat(bit12,bit22),64))
-    for i in length(kmer_1):-1:2
+   
+    if k == k1
+        pushfirst!(res, kmer_seq(vcat(bit11,bit21), vcat(bit12,bit22),length(range)+l))
+    else
+        pushfirst!(res, kmer_seq(vcat(bit11,bit21), vcat(bit12,bit22),64))
+    end
+
+   for i in length(kmer_1):-1:2
 
         bit11 = kmer_1[i-1].bit1[l+1:end]
         bit12 = kmer_1[i-1].bit2[l+1:end]
@@ -131,11 +145,19 @@ function kmerge(kmer_1::Vector{DNASeq}, kmer_2::Vector{DNASeq}, k::Int64, l :: I
     res = kmer_2[2:end]
     r = (l1_m+k1_m)>64
 
-    bit11 = kmer_2[1].bit1[end-l1_m+1:end]
-    bit12 = kmer_2[1].bit2[end-l1_m+1:end]
-    bit21 = kmer_1[end].bit1[l1_m+1:end]
-    bit22 = kmer_1[end].bit2[l1_m+1:end]
-    pushfirst!(res,kmer_seq(vcat(bit21,bit11),vcat(bit22,bit12),64))
+    bit11 = kmer_1[end].bit1[end-k1_m+1:end]
+    bit12 = kmer_1[end].bit2[end-k1_m+1:end]
+    bit21 = kmer_2[1].bit1[end-l1_m+1:end]
+    bit22 = kmer_2[1].bit2[end-l1_m+1:end]
+    
+    if l+k<64
+         pushfirst!(res,kmer_seq(vcat(bit11,bit21),vcat(bit12,bit22),l+k))
+    
+    else
+        pushfirst!(res,kmer_seq(vcat(bit11,bit21),vcat(bit12,bit22),64))
+    
+    end
+
     
     
     lk1 = length(kmer_1)
@@ -170,7 +192,7 @@ function IS(G::DefaultDict, Alphabet:: Vector{Char}, k :: Int64)
     for node in keys(G)
         max_kmer = node
         for (pid, p_kmer) in G[node].prefixes
-            if p_kmer[1] == Terminal
+            if p_kmer[1].len == 0 ## Terminal
                 continue
             end
             
@@ -181,7 +203,7 @@ function IS(G::DefaultDict, Alphabet:: Vector{Char}, k :: Int64)
             end
         end
         for (sid, s_kmer) in G[node].suffixes
-            if s_kmer[1] == Terminal
+            if s_kmer[1].len == 0 ## Terminal
                 continue
             end
             succ_node = succ_neigh(node, s_kmer)
@@ -210,6 +232,7 @@ function iterate_pack(G :: DefaultDict, IS_ :: Set, k:: Int64)
             if G[node].prefix_terminal_id != pid #&& length(G[node].prefixes)>0
                 pred_node = pred_neigh(node, G[node].prefixes[pid] )
                 pred_ext = G[node].prefixes[pid]
+                print("ss",pred_ext,"\n",node,pid,"\n\n")
                 
             end
             
@@ -222,6 +245,8 @@ function iterate_pack(G :: DefaultDict, IS_ :: Set, k:: Int64)
                 else
                     succ_node = succ_neigh(node, G[node].suffixes[sid])
                     succ_ext = G[node].suffixes[sid]
+                    
+                    print("ss",succ_ext,"\n",node,sid,"\n\n")
                     if G[node].prefix_terminal_id != pid 
                         if G[node].suffix_terminal_id == sid
                             new_ext = pred_ext
@@ -237,6 +262,7 @@ function iterate_pack(G :: DefaultDict, IS_ :: Set, k:: Int64)
                         else
                             new_ext = kmerge(pred_ext,succ_ext)
                         end
+                        
                         push!(transfer_nodeInfo,(succ_node,succ_ext,new_ext,visit_count,0))
 
                         
@@ -258,7 +284,7 @@ end
 
 function serialize_transfer(G :: DefaultDict, transfer_nodeInfo :: Set)
    
-
+    rewirelist = []
     for i in transfer_nodeInfo
         (node,ext,new_ext,visit_count,node_type) = i
 
@@ -272,7 +298,9 @@ function serialize_transfer(G :: DefaultDict, transfer_nodeInfo :: Set)
                 end
             end
             if check == 0
-                print("did not work")
+                print(node,"\n")
+                print(ext,"\n\n")
+                print("did not work\n")
             end
         else
             check = 0
@@ -287,10 +315,14 @@ function serialize_transfer(G :: DefaultDict, transfer_nodeInfo :: Set)
                 end
             end
             if check == 0
-                print(ext,"dd\ndd")
-                print("did not work")
+                #print(ext,"dd\ndd")
+                print(node,"\n")
+                print(ext,"\n\n")
+                
+                print("did not work\n")
                 
             end
+            push!(rewirelist,node)
         end
 
 
