@@ -5,6 +5,7 @@ using DataStructures, Random
 struct DNASeq
     bit1::BitArray{1}
     bit2::BitArray{1}
+    len :: Int64
 end
 
 import Base.isequal, Base.hash
@@ -66,19 +67,20 @@ function string_to_DNASeq(seq :: String)
         temp_1[65-length(temp[:,1]):64] = temp[:,1]
         temp_2[65-length(temp[:,2]):64] = temp[:,2]
         #print(temp_1)
-        push!(bitseq,DNASeq(BitArray(vec(temp_1)),BitArray(vec(temp_2))))
+        push!(bitseq,DNASeq(BitArray(vec(temp_1)),BitArray(vec(temp_2)),64))
     end
     temp_1 = zeros(Int64,64)
     temp_2 = zeros(Int64,64)
     temp = string_to_int(seq[64*(n-1)+1:end])
     temp_1[65-length(temp[:,1]):64] = temp[:,1]
     temp_2[65-length(temp[:,2]):64] = temp[:,2]
-    push!(bitseq,DNASeq(BitArray(vec(temp_1)),BitArray(vec(temp_2))))
+    push!(bitseq,DNASeq(BitArray(vec(temp_1)),BitArray(vec(temp_2)),n%64))
     bitseq
 
 end
 
- function DNASeq_to_string(seq:: DNASeq, k:: Int64)
+ function DNASeq_to_string(seq:: DNASeq)
+    k = seq.len
     bit1 = seq.bit1
     bit2 = seq.bit2
     str =""
@@ -97,7 +99,7 @@ end
 end
 
 
-function kmer_seq( bit1 :: BitArray, bit2 :: BitArray, k)
+function kmer_seq( bit1 :: BitArray, bit2 :: BitArray, k :: Int64)
     # @assert(length(bit1)==length(bit2))
     # @assert(length(bit1)==k)
     Bit1 = BitArray(undef,64)
@@ -105,7 +107,7 @@ function kmer_seq( bit1 :: BitArray, bit2 :: BitArray, k)
     Bit1[end-k+1 : end] = bit1
     Bit2[end-k+1 : end] = bit2
 
-    output = DNASeq(Bit1, Bit2)
+    output = DNASeq(Bit1, Bit2,k)
     output
 end
 
@@ -179,7 +181,8 @@ function read_kmer(seq:: Vector, len::Int64, k :: Int64)
 end
 
 
-function read_lmer_from_kmer(kmer :: DNASeq, k::Int64, l :: Int64)
+function read_lmer_from_kmer(kmer :: DNASeq, l :: Int64)
+    k = kmer.len
     @assert(l<k)
     ## l is length of the kmers we are searching for
     bit1 = kmer.bit1

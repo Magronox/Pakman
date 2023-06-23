@@ -38,7 +38,7 @@ end
 
 ## define terminal 
 
-Terminal = DNASeq(BitArray{1}(undef,1),BitArray{1}(undef,2))
+Terminal = DNASeq(BitArray{1}(undef,62),BitArray{1}(undef,62),0)
 
 
 
@@ -47,7 +47,8 @@ Base.isless(p::Pair, q::Pair) =
                isless(p.second,q.second)
            
 
-@inline function kmerge(c :: Char , kmer::DNASeq, k:: Int64, reverse::Bool)
+@inline function kmerge(c :: Char , kmer::DNASeq, reverse::Bool)
+    k = kmer.len
     if reverse == false
         bit1 = BitArray{1}(undef, k+1)
         bit2 = BitArray{1}(undef, k+1)
@@ -74,8 +75,7 @@ function graph_creator(kmer_list :: DefaultDict, Alphabet :: Vector{Char}, C :: 
     vc = 0
     for x in kmer_list
         xkey , ~ = x
-        x_prime_list = read_lmer_from_kmer(xkey,k,k-1)
-        
+        x_prime_list = read_lmer_from_kmer(xkey,k-1)
         
         for x_prime in x_prime_list
            
@@ -89,16 +89,18 @@ function graph_creator(kmer_list :: DefaultDict, Alphabet :: Vector{Char}, C :: 
             sid = 1
             for c in Alphabet
                 
-                
-                temp = kmerge(c,x_prime_key,k-1, false)
+                temp = kmerge(c,x_prime_key, false)
+
                 if temp in keys(kmer_list)
                     push!(u.prefixes[pid], string_to_DNASeq(string(c))[1])
                     vc = ceil(Int64,kmer_list[temp]/C)
                     u.prefix_counts[pid] = (kmer_list[temp],vc)
                     u.prefix_terminal = false
                     pid += 1
+                    
                 end
-                temp = kmerge(c,x_prime_key,k-1, true)
+
+                temp = kmerge(c,x_prime_key, true)
                 if temp in keys(kmer_list)
                     push!(u.suffixes[sid],temp)
                     vc = ceil(Int64,kmer_list[temp]/C)

@@ -12,10 +12,13 @@ function compact_graph( G :: DefaultDict{DNASeq,macro_node}, k:: Int64, phi :: I
     end
 end
 
-@inline function succ_neigh( kmer:: Union{Vector{DNASeq}, DNASeq} , lmer :: Vector{DNASeq}, k::Int64, l :: Int64)
+@inline function succ_neigh(kmer:: DNASeq , lmer :: Vector{DNASeq})
     ## kmer is the key, lmer is the prefix
+    #k::Int64, l :: Int64
+    k = kmer.len
     bit1 = lmer[1].bit1
     bit2 = lmer[1].bit2
+    l = (length(lmer)-1)*64 + lmer[1].len
     if l >= (k-1)
         return kmer_seq(bit1[64-k+2:64],bit2[64-k+2:64],k-1)
     else
@@ -23,10 +26,13 @@ end
         return kmerge(kmer, lmer[1], rem, l)
     end
 end
-@inline function pred_neigh(kmer :: Union{Vector{DNASeq}, DNASeq} , lmer :: Vector{DNASeq} , k::Int64, l:: Int64)
+
+@inline function pred_neigh(kmer :: DNASeq , lmer :: Vector{DNASeq})
     ## kmer is the key, lmer is the prefix
+    k = kmer.len
     bit1 = lmer[1].bit1
     bit2 = lmer[1].bit2
+    l = (length(lmer)-1)*64 + lmer[1].len
     if l>= (k-1)
         return kmer_seq(bit1[1:k-1],bit2[1:k-1],k-1)
     else
@@ -59,6 +65,22 @@ function kmerge(kmer_1::DNASeq, kmer_2::DNASeq, k::Int64, l :: Int64 )
 
 
 end
+
+function kmerge(kmer_1::Union{Vector{DNASeq},DNASeq}, kmer_2::Union{Vector{DNASeq},DNASeq})
+    if typeof(kmer_1) == Vector{DNASeq} 
+        k = (length(kmer_1)-1)*64 + kmer_1[1].len
+    else
+        k = kmer_1.len
+    end
+    if typeof(kmer_2) == Vector{DNASeq}
+        l = (length(kmer_2)-1)*64 + kmer_2[1].len
+    else
+        l = kmer_2.len
+    end
+    
+    return kmerge(kmer_1,kmer_2,k,l)
+end
+
 function kmerge(kmer_1::Vector{DNASeq}, kmer_2::DNASeq, k::Int64, l :: Int64 )
     k1 = k%64
     res = []
@@ -82,10 +104,8 @@ function kmerge(kmer_1::Vector{DNASeq}, kmer_2::DNASeq, k::Int64, l :: Int64 )
         pushfirst!(res,kmer_seq(bit1,bit2,l))
     end
     return res
-
-
-
 end
+
 function kmerge(kmer_1::DNASeq, kmer_2:: Vector{DNASeq}, k::Int64, l :: Int64 )
     l1 = l%64
     res = l1[2:end]
@@ -144,7 +164,7 @@ function kmerge(kmer_1::Vector{DNASeq}, kmer_2::Vector{DNASeq}, k::Int64, l :: I
 end
 
 
-function IS(G::DefaultDict, Alphabet:: Vector{Char}, k :: Int64, l :: Int64)
+function IS(G::DefaultDict, Alphabet:: Vector{Char}, k :: Int64)
     IS_ = Set()
 
     for node in keys(G)
@@ -154,7 +174,7 @@ function IS(G::DefaultDict, Alphabet:: Vector{Char}, k :: Int64, l :: Int64)
                 continue
             end
             
-            pred_node = pred_neigh(node, p_kmer, k,l)
+            pred_node = pred_neigh(node, p_kmer)
             if pred_node>node
                 max_kmer = pred_node
                 break
@@ -164,7 +184,7 @@ function IS(G::DefaultDict, Alphabet:: Vector{Char}, k :: Int64, l :: Int64)
             if s_kmer[1] == Terminal
                 continue
             end
-            succ_node = succ_neigh(node, s_kmer, k , l)
+            succ_node = succ_neigh(node, s_kmer)
             if succ_node > node
                 max_kmer = succ_node
                 break
@@ -179,32 +199,107 @@ function IS(G::DefaultDict, Alphabet:: Vector{Char}, k :: Int64, l :: Int64)
 end
 
 
-function iterate_pack(G :: DefaultDict{Int64,macro_node}, IS_ :: Set{DNASeq}, k:: Int64, l:: Int64)
-    transfer_nodeInfo = DefaultDict{DNASeq,Set}(Set([]))
-    pcontig_list = Vector{} 
+function iterate_pack(G :: DefaultDict, IS_ :: Set, k:: Int64)
+    transfer_nodeInfo = Set{Tuple}([])
+    pcontig_list = Vector{}()
+    #pred_node = DNASeq()
     for node in IS_
 
         for (i,iset) in G[node].wire_info.prefix_info
             pid = i
-            if G[node].prefix_terminal_id != pid && length(G[n].prefixes)>0
-                pred_node = pred_neigh(node, G[node].prefixes[pid] , k, l)
+            if G[node].prefix_terminal_id != pid #&& length(G[node].prefixes)>0
+                pred_node = pred_neigh(node, G[node].prefixes[pid] )
                 pred_ext = G[node].prefixes[pid]
-            end
-
-            for (j, offset, visit_count) in iset
-                sid = j
                 
+            end
+            
+            for (j, offset, visit_count) in iset
+                
+                sid = j
                 if G[node].prefix_terminal_id == pid && G[node].suffix_terminal_id == sid
+                    contig = kmerge(kmerge(G[node].prefixes[pid],node),G[node].suffixes[pid])
+                    push!(pcontig_list,contig)
+                else
+                    succ_node = succ_neigh(node, G[node].suffixes[sid])
+                    succ_ext = G[node].suffixes[sid]
+                    if G[node].prefix_terminal_id != pid 
+                        if G[node].suffix_terminal_id == sid
+                            new_ext = pred_ext
+                        else
+                            new_ext = kmerge(pred_ext,succ_ext)
+                        end
+                        push!(transfer_nodeInfo,(pred_node,pred_ext,new_ext,visit_count,1))
+                    end
 
+                    if G[node].suffix_terminal_id != sid 
+                        if G[node].prefix_terminal_id == pid
+                            new_ext = succ_ext
+                        else
+                            new_ext = kmerge(pred_ext,succ_ext)
+                        end
+                        push!(transfer_nodeInfo,(succ_node,succ_ext,new_ext,visit_count,0))
+
+                        
+                    end
 
                 end
             end
             #else
             #    succ_node = succ_neigh(node, G[node].suffixes)
             #end
-            for s in set
-            end
+            
         end
 
     end
+    
+    return pcontig_list, transfer_nodeInfo
 end
+
+
+function serialize_transfer(G :: DefaultDict, transfer_nodeInfo :: Set)
+   
+
+    for i in transfer_nodeInfo
+        (node,ext,new_ext,visit_count,node_type) = i
+
+        if node_type == 1
+            check = 0
+            for (i,p_ext) in G[node].prefixes
+                if p_ext == ext 
+                    check = 1
+                    G[node].prefixes[i] = new_ext
+                    G[node].prefix_counts[i][2] = visit_count
+                end
+            end
+            if check == 0
+                print("did not work")
+            end
+        else
+            check = 0
+            for (i,s_ext) in G[node].suffixes
+                print(s_ext,"ss\nss\n")
+                
+                if s_ext == ext 
+                    check = 1
+                    G[node].suffixes[i] = new_ext
+                    #print(G[node].suffix_counts[i])
+                    G[node].suffix_counts[i][2] = visit_count
+                end
+            end
+            if check == 0
+                print(ext,"dd\ndd")
+                print("did not work")
+                
+            end
+        end
+
+
+    end
+
+
+end
+
+
+## Test
+## I = IS(G,['A','C','G','T'],k)
+##
