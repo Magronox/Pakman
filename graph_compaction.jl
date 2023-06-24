@@ -6,6 +6,7 @@ function compact_graph( G :: DefaultDict{DNASeq,macro_node}, k:: Int64, phi :: I
     num_mn = length(G)
     contigs = []
     G1 = copy(G)
+    pcontig_list= []
     while(num_mn > phi)
         i_s = IS(G1,['A','C','G','T'],k)
         if isempty(i_s)
@@ -16,6 +17,7 @@ function compact_graph( G :: DefaultDict{DNASeq,macro_node}, k:: Int64, phi :: I
         serialize_transfer(G1,transfer_nodeInfo)
         num_mn = length(G1)
         push!(contigs,pcontig_list)
+        print("loop")
         
     end
     return G1, pcontig_list
@@ -60,7 +62,7 @@ end
 
 end
 
-function find_pred_ext(G::DefaultDict, kmer1 ::DNASeq, kmer2 :: DNASeq)
+function find_succ_ext(G::DefaultDict, kmer1 ::DNASeq, kmer2 :: DNASeq)
     ### find prefix of the successor(kmer2) that is connected to the suffix of kmer 1
 
     for (pid ,prefix) in G[kmer2].prefixes
@@ -72,16 +74,14 @@ function find_pred_ext(G::DefaultDict, kmer1 ::DNASeq, kmer2 :: DNASeq)
             return pid,prefix
         end
     end
-    
+
     print("nothing found")
 end
 
-function find_succ_ext(G :: DefaultDict, kmer1 ::DNASeq, kmer2 :: DNASeq)
+function find_pred_ext(G :: DefaultDict, kmer1 ::DNASeq, kmer2 :: DNASeq)
     ### find suffix of the predecessor(kmer1) that is connected to the prefix of kmer2
 
     for (sid ,suffix) in G[kmer1].suffixes
-        #print(kmer1)
-        #print("sss",suffix[1].bit1[end-suffix[1].len+1:end],"\n")
         if length(suffix)==1 && suffix[1].len<(k-1)
             if suffix[1].bit1[end-suffix[1].len+1:end] == kmer2.bit1[end - suffix[1].len+1:end] && suffix[1].bit2[end-suffix[1].len+1:end] == kmer2.bit2[end - suffix[1].len+1: end]
                 return sid, suffix
@@ -91,6 +91,7 @@ function find_succ_ext(G :: DefaultDict, kmer1 ::DNASeq, kmer2 :: DNASeq)
         end
     end
     
+   
     print("nothing found")
 end
 
@@ -272,8 +273,9 @@ function iterate_pack(G :: DefaultDict, IS_ :: Set, k:: Int64)
             pid = i
             if G[node].prefix_terminal_id != pid #&& length(G[node].prefixes)>0
                 pred_node = pred_neigh(node, G[node].prefixes[pid] )
-                ppid,pred_ext = find_succ_ext(G,pred_node, node)
+                ppid,pred_ext = find_pred_ext(G,pred_node, node)
                 #G[node].prefixes[pid]
+                
                 
                 
             end
@@ -286,7 +288,7 @@ function iterate_pack(G :: DefaultDict, IS_ :: Set, k:: Int64)
                     push!(pcontig_list,contig)
                 else
                     succ_node = succ_neigh(node, G[node].suffixes[sid])
-                    ssid,succ_ext = find_pred_ext(G,node, succ_node)
+                    ssid,succ_ext = find_succ_ext(G,node, succ_node)
                     #G[node].suffixes[sid]
                     
                     
@@ -294,8 +296,9 @@ function iterate_pack(G :: DefaultDict, IS_ :: Set, k:: Int64)
                         if G[node].suffix_terminal_id == sid
                             new_ext = pred_ext
                         else
-                          new_ext = kmerge(pred_ext,succ_ext)
+                          new_ext = kmerge(pred_ext,G[node].prefixes[pid])
                         end
+
                         push!(transfer_nodeInfo,(pred_node,pred_ext,new_ext,visit_count,1))
                     end
 
@@ -303,9 +306,9 @@ function iterate_pack(G :: DefaultDict, IS_ :: Set, k:: Int64)
                         if G[node].prefix_terminal_id == pid
                             new_ext = succ_ext
                         else
-                            new_ext = kmerge(pred_ext,succ_ext)
+                            new_ext = kmerge(G[node].suffixes[sid],succ_ext)
                         end
-                        
+
                         push!(transfer_nodeInfo,(succ_node,succ_ext,new_ext,visit_count,0))
 
                         
@@ -316,6 +319,8 @@ function iterate_pack(G :: DefaultDict, IS_ :: Set, k:: Int64)
             #else
             #    succ_node = succ_neigh(node, G[node].suffixes)
             #end
+                        
+
             
         end
 
@@ -336,6 +341,7 @@ function serialize_transfer(G :: DefaultDict, transfer_nodeInfo :: Set)
             for (i,p_ext) in G[node].suffixes
                 if p_ext == ext 
                     check = 1
+                    
                     G[node].suffixes[i] = new_ext
                     G[node].suffix_counts[i] = (first(G[node].suffix_counts[i]),visit_count)
                 end
@@ -351,8 +357,8 @@ function serialize_transfer(G :: DefaultDict, transfer_nodeInfo :: Set)
                 
                 if s_ext == ext 
                     check = 1
+                    
                     G[node].prefixes[i] = new_ext
-                    #print(G[node].suffix_counts[i])
                     G[node].prefix_counts[i] = (first(G[node].prefix_counts[i]), visit_count)
                 end
             end
@@ -366,11 +372,14 @@ function serialize_transfer(G :: DefaultDict, transfer_nodeInfo :: Set)
 
 
     end
-
+    for i in I
+        delete!(G,i)
+    end
 
 end
 
 
 ## Test
+## G = graph_creator(kmer_list,['A','C','G','T'], 5)
 ## I = IS(G,['A','C','G','T'],k)
-## compact_graph(G,3,2)
+## G_new, ~ = compact_graph(G,3,2)
