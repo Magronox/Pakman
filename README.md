@@ -13,6 +13,6 @@ kmer_list = read_kmer(DNA_seq, length(input),k)
 
 G = graph_creator(kmer_list,['A','C','G','T'], 5)
 I = IS(G,['A','C','G','T'],k)
-G_new, ~ = compact_graph(G,k,5)
+G_new, ~ = compact_graph(G,slen/2,5)
 output = run_walk(G)
 ```
