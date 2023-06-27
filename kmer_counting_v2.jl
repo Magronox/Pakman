@@ -102,6 +102,7 @@ end
 function kmer_seq( bit1 :: BitArray, bit2 :: BitArray, k :: Int64)
     # @assert(length(bit1)==length(bit2))
     # @assert(length(bit1)==k)
+    # @assert(k<=64)
     Bit1 = BitArray(undef,64)
     Bit2 = BitArray(undef,64)
     Bit1[end-k+1 : end] = bit1

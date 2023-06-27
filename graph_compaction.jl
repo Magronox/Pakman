@@ -2,7 +2,7 @@
 include("graph_construction.jl")
 include("kmer_counting_v2.jl")
 
-function compact_graph( G :: DefaultDict{DNASeq,macro_node}, k:: Int64, phi :: Int64)
+function compact_graph!( G :: DefaultDict{DNASeq,macro_node}, k:: Int64, phi :: Int64)
     num_mn = length(G)
     contigs = []
     G1 = copy(G)
@@ -24,11 +24,11 @@ function compact_graph( G :: DefaultDict{DNASeq,macro_node}, k:: Int64, phi :: I
 end
 
 @inline function succ_neigh(kmer:: DNASeq , lmer :: Vector{DNASeq})
-    ## kmer is the key, lmer is the prefix
+    ## kmer is the key, lmer is the suffix
     #k::Int64, l :: Int64
     k = kmer.len + 1
-    bit1 = lmer[1].bit1
-    bit2 = lmer[1].bit2
+    bit1 = lmer[end].bit1
+    bit2 = lmer[end].bit2
     l = (length(lmer)-1)*64 + lmer[1].len
     if l >= (k-1)
         
@@ -53,8 +53,9 @@ end
     bit1 = lmer[1].bit1
     bit2 = lmer[1].bit2
     l = (length(lmer)-1)*64 + lmer[1].len
+    ll = lmer[1].len
     if l>= (k-1)
-        return kmer_seq(bit1[1:k-1],bit2[1:k-1],k-1)
+        return kmer_seq(bit1[64-ll+1:64-ll+ k-1],bit2[64-ll+1:64-ll+k-1],k-1)
     else
         rem = k-1-l
         return kmerge(lmer[1], DNASeq(kmer.bit1[64-kmer.len+1:64-kmer.len+rem],kmer.bit2[64-kmer.len+1:64-kmer.len+rem],rem), l, rem)
@@ -140,8 +141,8 @@ function kmerge(kmer_1::Vector{DNASeq}, kmer_2::DNASeq, k::Int64, l :: Int64 )
     range = k>=(64-l) ? (l+1:64) : 64-k+1:64
     bit11 = kmer_1[end].bit1[range]
     bit12 = kmer_1[end].bit2[range]
-    bit21 = kmer_2.bit1
-    bit22 = kmer_2.bit2
+    bit21 = kmer_2.bit1[64-l+1:end]
+    bit22 = kmer_2.bit2[64-l+1:end]
    
     if k == k1
         pushfirst!(res, kmer_seq(vcat(bit11,bit21), vcat(bit12,bit22),length(range)+l))
@@ -162,6 +163,7 @@ function kmerge(kmer_1::Vector{DNASeq}, kmer_2::DNASeq, k::Int64, l :: Int64 )
         bit2 = kmer_1[1].bit2[1:l]
         pushfirst!(res,kmer_seq(bit1,bit2,l))
     end
+    res = Vector{DNASeq}(res)
     return res
 end
 
@@ -181,25 +183,40 @@ end
 function kmerge(kmer_1::Vector{DNASeq}, kmer_2::Vector{DNASeq}, k::Int64, l :: Int64 )
     #l1 = l÷ 64
     l1_m = l%64
+    if l>0 && l1_m==0
+        l1_m=64
+    elseif l1_m === 0
+        return vcat(kmer_1,kmer_2)
+    end
+
     #k1 = k÷64
     k1_m = k%64
-    if l1_m == 0
-        return vcat(kmer_1,kmer_2)
+    if k1_m == 0 && k>0
+        k1_m = 64
+        
     end
 
     res = kmer_2[2:end]
     r = (l1_m+k1_m)>64
 
-    bit11 = kmer_1[end].bit1[end-k1_m+1:end]
-    bit12 = kmer_1[end].bit2[end-k1_m+1:end]
+    if (l+k1_m)<64
+
+        bit11 = kmer_1[end].bit1[end-k1_m+1:end]
+        bit12 = kmer_1[end].bit2[end-k1_m+1:end]
+        bit21 = kmer_2[1].bit1[end-l1_m+1:end]
+        bit22 = kmer_2[1].bit2[end-l1_m+1:end]
+        
+        
+        pushfirst!(res,kmer_seq(vcat(bit11,bit21),vcat(bit12,bit22),l+k1_m))
+    
+    else
+
+    bit11 = kmer_1[end].bit1[l1_m+1:end]
+    bit12 = kmer_1[end].bit2[l1_m+1:end]
     bit21 = kmer_2[1].bit1[end-l1_m+1:end]
     bit22 = kmer_2[1].bit2[end-l1_m+1:end]
     
-    if l+k<64
-         pushfirst!(res,kmer_seq(vcat(bit11,bit21),vcat(bit12,bit22),l+k))
-    
-    else
-        pushfirst!(res,kmer_seq(vcat(bit11,bit21),vcat(bit12,bit22),64))
+    pushfirst!(res,kmer_seq(vcat(bit11,bit21),vcat(bit12,bit22),64))
     
     end
 
@@ -330,7 +347,7 @@ function iterate_pack(G :: DefaultDict, IS_ :: Set, k:: Int64)
 end
 
 
-function serialize_transfer(G :: DefaultDict, transfer_nodeInfo :: Set)
+function serialize_transfer!(G :: DefaultDict, transfer_nodeInfo :: Set)
    
     rewirelist = []
     for i in transfer_nodeInfo
@@ -380,6 +397,13 @@ end
 
 
 ## Test
+## slen = 1000
+## input = randstring("ACGT",slen)
+
+## DNA_seq = string_to_DNASeq(input)
+## k=3
+## kmer_list = read_kmer(DNA_seq, length(input),k)
+
 ## G = graph_creator(kmer_list,['A','C','G','T'], 5)
 ## I = IS(G,['A','C','G','T'],k)
-## G_new, ~ = compact_graph(G,3,2)
+## G_new, ~ = compact_graph(G,k,5)
