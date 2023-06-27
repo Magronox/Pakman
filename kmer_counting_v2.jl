@@ -18,6 +18,29 @@ function Base.isequal(seq1::T, seq2::T) where T <: DNASeq
         return false
     end
 end
+function Base.isequal(seq1::Vector{T}, seq2::T) where T <: DNASeq
+    if length(seq1)==1
+        if seq1[1].bit1 == seq2.bit1 && seq1[1].bit2 == seq2.bit2
+         return true
+        else 
+            return false
+        end
+    else return false
+    end
+end
+function Base.isequal(seq1::T, seq2::Vector{T}) where T <: DNASeq
+    if length(seq2)==1
+        if seq1.bit1 == seq2[1].bit1 && seq1.bit2 == seq2[1].bit2
+         return true
+        else 
+            return false
+        end
+    else return false
+    end
+end
+
+Base.:(==)(seq1 ::Union{Vector{DNASeq},DNASeq}, seq2 :: Union{Vector{DNASeq},DNASeq}) = isequal(seq1,seq2)
+
 
 function Base.isless(seq1 :: T, seq2 :: T) where T<: DNASeq
     return [(i%2==1)*seq1.bit1[((i+1)÷2)+(i%2==0)-(i==128)]+seq1.bit2[(i÷2)+(i%2==1)]*(i%2==0) for i in 1:128]<[(i%2==1)*seq2.bit1[((i+1)÷2)+(i%2==0)-(i==128)] + seq2.bit2[(i÷ 2)+(i%2==1)]*(i%2==0) for i in 1:128]
