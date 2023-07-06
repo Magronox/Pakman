@@ -12,7 +12,7 @@ import Base.isequal, Base.hash
 
 
 function Base.isequal(seq1::T, seq2::T) where T <: DNASeq
-    if seq1.bit1 == seq2.bit1 && seq1.bit2 == seq2.bit2
+    if seq1.bit1 == seq2.bit1 && seq1.bit2 == seq2.bit2 && seq1.len == seq2.len
         return true
     else 
         return false
@@ -20,7 +20,7 @@ function Base.isequal(seq1::T, seq2::T) where T <: DNASeq
 end
 function Base.isequal(seq1::Vector{T}, seq2::T) where T <: DNASeq
     if length(seq1)==1
-        if seq1[1].bit1 == seq2.bit1 && seq1[1].bit2 == seq2.bit2
+        if seq1[1].bit1 == seq2.bit1 && seq1[1].bit2 == seq2.bit2 && seq1[1].len == seq2.len
          return true
         else 
             return false
@@ -30,7 +30,7 @@ function Base.isequal(seq1::Vector{T}, seq2::T) where T <: DNASeq
 end
 function Base.isequal(seq1::T, seq2::Vector{T}) where T <: DNASeq
     if length(seq2)==1
-        if seq1.bit1 == seq2[1].bit1 && seq1.bit2 == seq2[1].bit2
+        if seq1.bit1 == seq2[1].bit1 && seq1.bit2 == seq2[1].bit2 && seq1.len == seq2[1].len
          return true
         else 
             return false
@@ -38,6 +38,19 @@ function Base.isequal(seq1::T, seq2::Vector{T}) where T <: DNASeq
     else return false
     end
 end
+function Base.isequal(seq1::Vector{T}, seq2::Vector{T}) where T <: DNASeq
+    if length(seq2)!= length(seq1)
+        return false
+    else
+        for i in 1:length(seq1)
+            if seq1[i]!=seq2[i]
+                return false
+            end
+        end
+        return true
+    end
+end
+
 
 Base.:(==)(seq1 ::Union{Vector{DNASeq},DNASeq}, seq2 :: Union{Vector{DNASeq},DNASeq}) = isequal(seq1,seq2)
 
@@ -45,8 +58,35 @@ Base.:(==)(seq1 ::Union{Vector{DNASeq},DNASeq}, seq2 :: Union{Vector{DNASeq},DNA
 function Base.isless(seq1 :: T, seq2 :: T) where T<: DNASeq
     return [(i%2==1)*seq1.bit1[((i+1)÷2)+(i%2==0)-(i==128)]+seq1.bit2[(i÷2)+(i%2==1)]*(i%2==0) for i in 1:128]<[(i%2==1)*seq2.bit1[((i+1)÷2)+(i%2==0)-(i==128)] + seq2.bit2[(i÷ 2)+(i%2==1)]*(i%2==0) for i in 1:128]
 end
+
+function Base.isless(seq1 :: Vector{T}, seq2 :: Vector{T}) where T<: DNASeq
+    if length(seq1)!=length(seq2)
+        return length(seq1)<length(seq2)
+    end
+    for j in 1:length(seq1)
+        temp1 = [(i%2==1)*seq1[j].bit1[((i+1)÷2)+(i%2==0)-(i==128)]+seq1[j].bit2[(i÷2)+(i%2==1)]*(i%2==0) for i in 1:128]
+        temp2 = [(i%2==1)*seq2[j].bit1[((i+1)÷2)+(i%2==0)-(i==128)] + seq2[j].bit2[(i÷ 2)+(i%2==1)]*(i%2==0) for i in 1:128]
+        if temp1== temp2
+            continue
+        else 
+            return temp1<temp2
+        end
+    end
+    return false
+end
+
+function Base.isless(seq1::T, seq2::Vector{T}) where T<:DNASeq
+    return Base.isless(seq1,seq2[1])
+end
 function Base.hash(seq1::T) where T <: DNASeq
     return Base.hash(bitarr_to_int(vcat(seq1.bit1,seq1.bit2)))
+end
+function Base.hash(seq1::Vector{T}) where T <: DNASeq
+    if length(seq1)<=1
+        return Base.hash(bitarr_to_int(vcat(seq1[1].bit1,seq1[1].bit2)))
+    else
+        return Base.hash(bitarr_to_int(vcat(seq1[1].bit1,seq1[1].bit2,seq1[2].bit1,seq1[2].bit2)))
+    end
 end
 
 function bitarr_to_int(arr,s=Int128(0))
@@ -97,7 +137,7 @@ function string_to_DNASeq(seq :: String)
     temp = string_to_int(seq[64*(n-1)+1:end])
     temp_1[65-length(temp[:,1]):64] = temp[:,1]
     temp_2[65-length(temp[:,2]):64] = temp[:,2]
-    push!(bitseq,DNASeq(BitArray(vec(temp_1)),BitArray(vec(temp_2)),n%64))
+    push!(bitseq,DNASeq(BitArray(vec(temp_1)),BitArray(vec(temp_2)),length(seq)-(n-1)*64))
     bitseq
 
 end

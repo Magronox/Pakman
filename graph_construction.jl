@@ -9,14 +9,14 @@ Base.@kwdef mutable struct macro_node
     #length k-1
     #id = 0
     label = DNASeq#BitArray{1}(undef,64)
-    prefixes = DefaultDict{Int64, Vector{DNASeq}}([])
+    prefixes = DefaultDict{Int64, Vector{DNASeq}}(DNASeq[])
     prefix_counts = Dict{Int64, Tuple}()
-    prefix_terminal_id = -1
+    prefix_terminal_id = []
     prefix_terminal = false
-    suffixes = DefaultDict{Int64, Vector{DNASeq}}([])
+    suffixes = DefaultDict{Int64, Vector{DNASeq}}(DNASeq[])
     suffix_counts = Dict{Int64,Tuple}()
     suffix_terminal = false
-    suffix_terminal_id = -1
+    suffix_terminal_id = []
     wire_info = wire_node()
 end
 
@@ -38,9 +38,9 @@ end
 
 ## define terminal 
 
-Terminal = DNASeq(BitArray{1}(undef,62),BitArray{1}(undef,62),0)
+Terminal = DNASeq(BitArray{1}(undef,64),BitArray{1}(undef,64),0)
 
-
+VTerminal = [Terminal]
 
 ### to get the maximum values in dictionary
 Base.isless(p::Pair, q::Pair) =
@@ -71,7 +71,7 @@ end
 
 
 function graph_creator(kmer_list :: DefaultDict, Alphabet :: Vector{Char}, C :: Int64)
-    G = DefaultDict{DNASeq,macro_node}(0)
+    G = DefaultDict{Vector{DNASeq},macro_node}(0)
     vc = 0
     for x in kmer_list
         xkey , ~ = x
@@ -83,7 +83,7 @@ function graph_creator(kmer_list :: DefaultDict, Alphabet :: Vector{Char}, C :: 
             #x_prime_key, ~ = x_prime_key
             #id += 1
             u = macro_node()
-            u.label = x_prime_key
+            u.label = [x_prime_key]
             #u.id = id
             pid = 1
             sid = 1
@@ -92,7 +92,7 @@ function graph_creator(kmer_list :: DefaultDict, Alphabet :: Vector{Char}, C :: 
                 temp = kmerge(c,x_prime_key, false)
 
                 if temp in keys(kmer_list)
-                    push!(u.prefixes[pid], string_to_DNASeq(string(c))[1])
+                    u.prefixes[pid] = string_to_DNASeq(string(c))
                     vc = ceil(Int64,kmer_list[temp]/C)
                     u.prefix_counts[pid] = (kmer_list[temp],vc)
                     u.prefix_terminal = false
@@ -102,7 +102,10 @@ function graph_creator(kmer_list :: DefaultDict, Alphabet :: Vector{Char}, C :: 
 
                 temp = kmerge(c,x_prime_key, true)
                 if temp in keys(kmer_list)
-                    push!(u.suffixes[sid],string_to_DNASeq(string(c))[1])
+                    u.suffixes[sid] = string_to_DNASeq(string(c))
+                    if length(u.suffixes[sid])==0
+                        print("error\n",string_to_DNASeq(string(c))[1],"\n\n")
+                    end
                     vc = ceil(Int64,kmer_list[temp]/C)
                     u.suffix_counts[sid] = (kmer_list[temp],vc)
                     u.suffix_terminal = false
@@ -174,29 +177,29 @@ function setup_wiring(u :: macro_node)
         
         if isempty(u.suffixes)
             sid = 1
-            u.suffix_terminal_id = sid
         else
             sid = maximum(keys(u.suffixes)) + 1
-            u.suffix_terminal_id = sid
         end
-        push!(u.suffixes[sid] , Terminal)
+
+        u.suffixes[sid] = VTerminal
+        push!(u.suffix_terminal_id,sid)
         u.suffix_counts[sid] = (1, pc- sc)
         terminal_key = sid
 
 
     elseif sc>pc
-        #print(pc,"ss",sc,"ss","\n")
+        
         u.prefix_terminal = true
         u.suffix_terminal = false
         
         if isempty(u.prefixes)
             pid = 1
-            u.prefix_terminal_id = pid
         else
             pid = maximum(keys(u.prefixes)) + 1
-            u.prefix_terminal_id = pid
         end
-        push!(u.prefixes[pid] , Terminal)
+        push!(u.prefix_terminal_id , pid)
+        #print(u.prefixes[pid],"\n")
+        u.prefixes[pid] = VTerminal
         u.prefix_counts[pid] = (1, sc - pc)
         push!(prefix_info_2,0)
         push!(prefix_info_3,0)

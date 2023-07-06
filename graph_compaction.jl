@@ -2,25 +2,35 @@
 include("graph_construction.jl")
 include("kmer_counting_v2.jl")
 
-function compact_graph!( G :: DefaultDict{DNASeq,macro_node}, k:: Int64, phi :: Int64)
+function compact_graph!( G :: DefaultDict{Vector{DNASeq},macro_node}, k:: Int64, phi :: Int64)
     num_mn = length(G)
     contigs = []
-    G1 = copy(G)
     pcontig_list= []
+    transfer_node_info = []
     while(num_mn > phi)
-        i_s = IS(G1,['A','C','G','T'],k)
+        i_s = IS(G,['A','C','G','T'],k)
+        
         if isempty(i_s)
-            print(i_s)
+            
+            print("done\n")
             break
         end
-        pcontig_list, transfer_nodeInfo = iterate_pack(G1,I,k)
-        serialize_transfer(G1,transfer_nodeInfo)
-        num_mn = length(G1)
-        push!(contigs,pcontig_list)
-        print("loop")
+        pcontig_list, transfer_nodeInfo = iterate_pack(G,i_s,k)
+
         
+        serialize_transfer!(G,transfer_nodeInfo)
+        for i in i_s
+
+            delete!(G,i)
+            
+        end
+
+
+        num_mn = length(G)
+        push!(contigs,pcontig_list)
+        print("loop\n",num_mn,"\n")
     end
-    return G1, pcontig_list
+    return G, pcontig_list
 end
 
 @inline function succ_neigh(kmer:: DNASeq , lmer :: Vector{DNASeq})
@@ -29,21 +39,25 @@ end
     k = kmer.len + 1
     bit1 = lmer[end].bit1
     bit2 = lmer[end].bit2
-    l = (length(lmer)-1)*64 + lmer[1].len
+    if lmer[end].len!=0
+        l = (length(lmer)-1)*64 + lmer[1].len
+    else
+        l = (length(lmer)-2)*64 + lmer[1].len
+    end
     if l >= (k-1)
         
         if l == 0 
             print("error")
             return Nothing
         end
-        return kmer_seq(bit1[64-k+2:64],bit2[64-k+2:64],k-1)
+        return [kmer_seq(bit1[64-k+2:64],bit2[64-k+2:64],k-1)]
     else
         rem = k-1-l
         if l == 0 
             print("error")
             return Nothing
         end
-        return kmerge(kmer, lmer[1], rem, l)
+        return [kmerge(kmer, lmer[1], rem, l)]
     end
 end
 
@@ -52,13 +66,20 @@ end
     k = kmer.len +1
     bit1 = lmer[1].bit1
     bit2 = lmer[1].bit2
-    l = (length(lmer)-1)*64 + lmer[1].len
+    if lmer[end].len!=0
+        l = (length(lmer)-1)*64 + lmer[1].len
+    else
+        l = (length(lmer)-2)*64 + lmer[1].len
+    end
+
     ll = lmer[1].len
+    
+    
     if l>= (k-1)
-        return kmer_seq(bit1[64-ll+1:64-ll+ k-1],bit2[64-ll+1:64-ll+k-1],k-1)
+        return [kmer_seq(bit1[64-ll+1:64-ll+ k-1],bit2[64-ll+1:64-ll+k-1],k-1)]
     else
         rem = k-1-l
-        return kmerge(lmer[1], DNASeq(kmer.bit1[64-kmer.len+1:64-kmer.len+rem],kmer.bit2[64-kmer.len+1:64-kmer.len+rem],rem), l, rem)
+        return [kmerge(lmer[1], DNASeq(kmer.bit1[64-kmer.len+1:64-kmer.len+rem],kmer.bit2[64-kmer.len+1:64-kmer.len+rem],rem), l, rem)]
     end
 
 end
@@ -66,7 +87,7 @@ end
 function find_succ_ext(G::DefaultDict, kmer1 ::DNASeq, kmer2 :: DNASeq)
     ### find prefix of the successor(kmer2) that is connected to the suffix of kmer 1
 
-    for (pid ,prefix) in G[kmer2].prefixes
+    for (pid ,prefix) in G[[kmer2]].prefixes
         if length(prefix)==1 && prefix[1].len<(k-1)
             if prefix[1].bit1[end-prefix[1].len+1:end] == kmer1.bit1[end-kmer1.len+1:end - kmer1.len + prefix[1].len] && prefix[1].bit2[end-prefix[1].len+1:end] == kmer1.bit2[end-kmer1.len+1:end - kmer1.len + prefix[1].len]
                 return pid, prefix
@@ -75,14 +96,14 @@ function find_succ_ext(G::DefaultDict, kmer1 ::DNASeq, kmer2 :: DNASeq)
             return pid,prefix
         end
     end
-
+   
     print("nothing found")
 end
 
 function find_pred_ext(G :: DefaultDict, kmer1 ::DNASeq, kmer2 :: DNASeq)
     ### find suffix of the predecessor(kmer1) that is connected to the prefix of kmer2
-
-    for (sid ,suffix) in G[kmer1].suffixes
+    
+    for (sid ,suffix) in G[[kmer1]].suffixes
         if length(suffix)==1 && suffix[1].len<(k-1)
             if suffix[1].bit1[end-suffix[1].len+1:end] == kmer2.bit1[end - suffix[1].len+1:end] && suffix[1].bit2[end-suffix[1].len+1:end] == kmer2.bit2[end - suffix[1].len+1: end]
                 return sid, suffix
@@ -101,6 +122,15 @@ end
 end
 
 function kmerge(kmer_1::DNASeq, kmer_2::DNASeq, k::Int64, l :: Int64 )
+    if kmer_1 == Terminal 
+        if kmer_2 == Terminal
+            print("error")
+        end
+        return [kmer_1, Terminal]
+    elseif kmer_2 == Terminal
+        return [kmer_1,Terminal]
+            
+    end
     if l+k <=64
         bit11 = kmer_1.bit1
         bit12 = kmer_1.bit2
@@ -116,8 +146,6 @@ function kmerge(kmer_1::DNASeq, kmer_2::DNASeq, k::Int64, l :: Int64 )
         seq2 = kmer_seq(bit11[1:64-l],bit12[1:64-l],64-l)
         return [seq2, seq1]
     end
-
-
 end
 
 function kmerge(kmer_1::Union{Vector{DNASeq},DNASeq}, kmer_2::Union{Vector{DNASeq},DNASeq})
@@ -180,21 +208,32 @@ function kmerge(kmer_1::DNASeq, kmer_2:: Vector{DNASeq}, k::Int64, l :: Int64 )
     res
 end
 
+
 function kmerge(kmer_1::Vector{DNASeq}, kmer_2::Vector{DNASeq}, k::Int64, l :: Int64 )
     #l1 = l÷ 64
     l1_m = l%64
-    if l>0 && l1_m==0
+    if l1_m==0
         l1_m=64
-    elseif l1_m === 0
-        return vcat(kmer_1,kmer_2)
+        if l == 0
+            return vcat(kmer_1,kmer_2)
+        end
+        
     end
 
     #k1 = k÷64
     k1_m = k%64
-    if k1_m == 0 && k>0
-        k1_m = 64
+    if k1_m == 0 
+        if k>0
+            k1_m = 64
+        elseif l==0
+            print("error\n")
+        else
+            return vcat(kmer_1,kmer_2)
+        end
         
     end
+
+
 
     res = kmer_2[2:end]
     r = (l1_m+k1_m)>64
@@ -220,7 +259,6 @@ function kmerge(kmer_1::Vector{DNASeq}, kmer_2::Vector{DNASeq}, k::Int64, l :: I
     
     end
 
-    
     
     lk1 = length(kmer_1)
     
@@ -255,17 +293,20 @@ function IS(G::DefaultDict, Alphabet:: Vector{Char}, k :: Int64)
                 continue
             end
             
-            pred_node = pred_neigh(node, p_kmer)
+            
+            pred_node = pred_neigh(node[1], p_kmer)
             if pred_node>node
                 max_kmer = pred_node
                 break
             end
         end
         for (sid, s_kmer) in G[node].suffixes
+            
             if s_kmer[1].len == 0 ## Terminal
                 continue
             end
-            succ_node = succ_neigh(node, s_kmer)
+            succ_node = succ_neigh(node[1], s_kmer)
+            
             if succ_node > node
                 max_kmer = succ_node
                 break
@@ -281,64 +322,55 @@ end
 
 
 function iterate_pack(G :: DefaultDict, IS_ :: Set, k:: Int64)
-    transfer_nodeInfo = Set{Tuple}([])
+    transfer_nodeInfo = DefaultDict{Vector{DNASeq}, Set{Tuple}}(Set{Tuple}())
     pcontig_list = Vector{}()
-    #pred_node = DNASeq()
-    for node in IS_
+    
 
+    for node in IS_
+        
         for (i,iset) in G[node].wire_info.prefix_info
+
+
             pid = i
-            if G[node].prefix_terminal_id != pid #&& length(G[node].prefixes)>0
-                pred_node = pred_neigh(node, G[node].prefixes[pid] )
-                ppid,pred_ext = find_pred_ext(G,pred_node, node)
-                #G[node].prefixes[pid]
-                
+            if !(pid in G[node].prefix_terminal_id)  #&& length(G[node].prefixes)>0
+                pred_node = pred_neigh(node[1], G[node].prefixes[pid] )
+                ssid,pred_ext = find_pred_ext(G,pred_node[1], node[1])
                 
                 
             end
             
             for (j, offset, visit_count) in iset
-                
                 sid = j
-                if G[node].prefix_terminal_id == pid && G[node].suffix_terminal_id == sid
+                if (pid in G[node].prefix_terminal_id)  && (sid in G[node].suffix_terminal_id)
                     contig = kmerge(kmerge(G[node].prefixes[pid],node),G[node].suffixes[pid])
                     push!(pcontig_list,contig)
                 else
-                    succ_node = succ_neigh(node, G[node].suffixes[sid])
-                    ssid,succ_ext = find_succ_ext(G,node, succ_node)
-                    #G[node].suffixes[sid]
+                    if G[node].suffixes[sid] == VTerminal || G[node].suffixes[sid] == VTerminal
+                        succ_node = Nothing
+                        succ_ext = Nothing
+                        
+                        
+                    else
+                        succ_node = succ_neigh(node[1], G[node].suffixes[sid])
+                        ppid,succ_ext = find_succ_ext(G,node[1], succ_node[1])
+                    end
                     
-                    
-                    if G[node].prefix_terminal_id != pid 
-                        if G[node].suffix_terminal_id == sid
-                            new_ext = pred_ext
-                        else
-                          new_ext = kmerge(pred_ext,G[node].prefixes[pid])
-                        end
-
-                        push!(transfer_nodeInfo,(pred_node,pred_ext,new_ext,visit_count,1))
+                    if !(pid in G[node].prefix_terminal_id)
+                        
+                        new_ext = kmerge(pred_ext,G[node].suffixes[sid])
+                        push!(transfer_nodeInfo[node] , (pred_node,pred_ext,new_ext,visit_count,1,ssid,pid))
                     end
 
-                    if G[node].suffix_terminal_id != sid 
-                        if G[node].prefix_terminal_id == pid
-                            new_ext = succ_ext
-                        else
-                            new_ext = kmerge(G[node].suffixes[sid],succ_ext)
-                        end
-
-                        push!(transfer_nodeInfo,(succ_node,succ_ext,new_ext,visit_count,0))
+                    if !(sid in G[node].suffix_terminal_id)
+                        
+                        new_ext = kmerge(G[node].prefixes[pid],succ_ext)
+                        push!(transfer_nodeInfo[node] , (succ_node,succ_ext,new_ext,visit_count,0,ppid,pid))
 
                         
                     end
 
                 end
             end
-            #else
-            #    succ_node = succ_neigh(node, G[node].suffixes)
-            #end
-                        
-
-            
         end
 
     end
@@ -347,50 +379,57 @@ function iterate_pack(G :: DefaultDict, IS_ :: Set, k:: Int64)
 end
 
 
-function serialize_transfer!(G :: DefaultDict, transfer_nodeInfo :: Set)
+function serialize_transfer!(G :: DefaultDict, transfer_nodeInfo :: DefaultDict{Vector{DNASeq}, Set{Tuple}, Set{Tuple}})
    
     rewirelist = []
-    for i in transfer_nodeInfo
-        (node,ext,new_ext,visit_count,node_type) = i
+    #print("transfer",transfer_nodeInfo,"\n\n\n\n")
 
-        if node_type == 1
-            check = 0
-            for (i,p_ext) in G[node].suffixes
-                if p_ext == ext 
-                    check = 1
-                    
-                    G[node].suffixes[i] = new_ext
-                    G[node].suffix_counts[i] = (first(G[node].suffix_counts[i]),visit_count)
-                end
-            end
-            if check == 0
+    for node in keys(transfer_nodeInfo)
 
-                print("did not work\n")
-            end
-        else
-            check = 0
-            for (i,s_ext) in G[node].prefixes
-               
+        index_suf = 0
+        index_pref = 0
+        
+        for i in transfer_nodeInfo[node]
+            (node,ext,new_ext,visit_count,node_type,id,pid) = i
+            
+            
+            if node_type == 1
                 
-                if s_ext == ext 
-                    check = 1
-                    
-                    G[node].prefixes[i] = new_ext
-                    G[node].prefix_counts[i] = (first(G[node].prefix_counts[i]), visit_count)
+                if new_ext[end] == Terminal
+                    push!(G[node].suffix_terminal_id,id)
                 end
+                if index_suf == 0 
+                    G[node].suffixes[id] = new_ext
+                    G[node].suffix_counts[id] = (first(G[node].suffix_counts[id]),visit_count)
+                    index_suf += 1
+                else
+
+                    G[node].suffixes[1 + maximum(keys(G[node].suffixes))] = new_ext
+                    push!(G[node].wire_info.prefix_info[pid],(maximum(keys(G[node].suffixes)),0,visit_count))
+                    G[node].suffix_counts[maximum(keys(G[node].suffixes))] = (first(G[node].suffix_counts[id]),visit_count)
+                end
+
+            else
+                if new_ext[end] == Terminal
+                    push!(G[node].prefix_terminal_id,id)
+                end
+
+                if index_pref == 0
+                    G[node].prefixes[id] = new_ext
+                    G[node].prefix_counts[id] = (first(G[node].prefix_counts[id]), visit_count)
+
+                else
+                    G[node].prefixes[1+maximum(keys(G[node].prefixes))] = new_ext
+                    G[node].prefix_counts[maximum(keys(G[node].prefixes))] = (first(G[node].prefix_counts[id]), visit_count)
+                    push!(G[node].wire_info.prefix_info[pid],(maximum(keys(G[node].suffixes)),1,visit_count))
+                end
+                push!(rewirelist,node)
             end
-            if check == 0
-\
-                print("did not work\n")
-                
-            end
-            push!(rewirelist,node)
+    
+    
         end
+    
 
-
-    end
-    for i in I
-        delete!(G,i)
     end
 
 end
@@ -406,4 +445,4 @@ end
 
 ## G = graph_creator(kmer_list,['A','C','G','T'], 5)
 ## I = IS(G,['A','C','G','T'],k)
-## G_new, ~ = compact_graph(G,k,5)
+## G_new, ~ = compact_graph!(G,k,Int(length(G)*4/5))
