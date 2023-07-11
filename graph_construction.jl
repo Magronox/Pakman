@@ -31,7 +31,7 @@ function Base.hash(a :: macro_node)
 end
 
 Base.@kwdef mutable struct wire_node
-    prefix_info = DefaultDict{Int64, Set{Tuple}}(Set{Tuple}())
+    prefix_info = DefaultDict{Int64, Set{Tuple}}(Set())
     len = 0
 end
 
@@ -78,42 +78,53 @@ function graph_creator(kmer_list :: DefaultDict, Alphabet :: Vector{Char}, C :: 
         x_prime_list = read_lmer_from_kmer(xkey,k-1)
         
         for x_prime in x_prime_list
-           
-            x_prime_key,~ = x_prime
-            #x_prime_key, ~ = x_prime_key
-            #id += 1
-            u = macro_node()
-            u.label = [x_prime_key]
-            #u.id = id
-            pid = 1
-            sid = 1
-            for c in Alphabet
-                
-                temp = kmerge(c,x_prime_key, false)
+            
+            if !([x_prime[1]] in keys(G))
+                x_prime_key,~ = x_prime
+                u = macro_node()
+                u.label = [x_prime_key]
+                #u.id = id
+                pid = 1
+                sid = 1
 
-                if temp in keys(kmer_list)
-                    u.prefixes[pid] = string_to_DNASeq(string(c))
-                    vc = ceil(Int64,kmer_list[temp]/C)
-                    u.prefix_counts[pid] = (kmer_list[temp],vc)
-                    u.prefix_terminal = false
-                    pid += 1
 
-                end
+                for c in Alphabet
+                    
+                    temp = kmerge(c,x_prime_key, false)
+                    node = [DNASeq(vcat(zeros(Int64,64-k+1),temp.bit1[end-k+1:end-1]),vcat(zeros(Int64,64-k+1),temp.bit2[end-k+1:end-1]),k-1)]
 
-                temp = kmerge(c,x_prime_key, true)
-                if temp in keys(kmer_list)
-                    u.suffixes[sid] = string_to_DNASeq(string(c))
-                    if length(u.suffixes[sid])==0
-                        print("error\n",string_to_DNASeq(string(c))[1],"\n\n")
+                    if  node!= [x_prime_key] && temp in keys(kmer_list)
+                        u.prefixes[pid] = string_to_DNASeq(string(c))
+                        vc = ceil(Int64,kmer_list[temp]/C)
+                        u.prefix_counts[pid] = (kmer_list[temp],vc)
+                        u.prefix_terminal = false
+                        pid += 1
+                        
+
                     end
-                    vc = ceil(Int64,kmer_list[temp]/C)
-                    u.suffix_counts[sid] = (kmer_list[temp],vc)
-                    u.suffix_terminal = false
-                    sid += 1
+
+                    temp = kmerge(c,x_prime_key, true)
+                    node = [DNASeq(vcat(zeros(Int64,64-k+1),temp.bit1[end-k+2:end]),vcat(zeros(Int64,64-k+1),temp.bit2[end-k+2:end]),k-1)]
+
+                    if node != [x_prime_key] && temp in keys(kmer_list)
+                        u.suffixes[sid] = string_to_DNASeq(string(c))
+                        if length(u.suffixes[sid])==0
+                            print("error\n",string_to_DNASeq(string(c))[1],"\n\n")
+                        end
+                        vc = ceil(Int64,kmer_list[temp]/C)
+                        u.suffix_counts[sid] = (kmer_list[temp],vc)
+                        u.suffix_terminal = false
+                        sid += 1
+                    end
                 end
+                
+                setup_wiring(u)
+                G[u.label] = u
             end
-            G[u.label] = u
-            setup_wiring(u)
+            
+            
+            
+            u = macro_node()
         end
         
         
@@ -135,6 +146,7 @@ end
 
         
 function setup_wiring(u :: macro_node)
+    
     terminal_key = 0
 
     if isempty(u.prefixes)
@@ -212,15 +224,95 @@ function setup_wiring(u :: macro_node)
     pref_dict = Dict(keys(u.prefix_counts) .=> getfield.(values(u.prefix_counts),2))
     suff_dict = Dict(keys(u.suffix_counts) .=> getfield.(values(u.suffix_counts),2))
     #set_pid = Set(collect(1:length(u.prefixes)))
-    
-    
+ 
     #phase of the greedy algorithm
     ##
     fan_out = (length(u.suffixes) >= length(u.prefixes))
     #finished = isempty(pref_dict) && isempty(suff_dict)
     offset = 0
     finished = false
-
+    if fan_out
+        
+        pid, pvc = maximum(pref_dict)
+        sid, svc = maximum(suff_dict)
+        leftover = pvc - svc
+        while length(suff_dict)>length(pref_dict)
+            if leftover > 0 
+                push!(u.wire_info.prefix_info[pid],(sid, offset, min(pref_dict[pid], suff_dict[sid])))
+                delete!(suff_dict,sid)
+                sid, svc = maximum(suff_dict)
+                leftover -= svc
+            else
+                delete!(pref_dict,pid)
+                offset = 0
+                pid, pvc = maximum(pref_dict)
+                leftover = pvc - svc
+            end
+        end
+        offset = 0
+        while length(suff_dict)!=0
+            push!(u.wire_info.prefix_info[pid],(sid, offset, min(pref_dict[pid], suff_dict[sid])))
+            delete!(suff_dict,sid)
+            delete!(pref_dict,pid)
+            if length(suff_dict)==0
+                break
+            end
+            sid, svc = maximum(suff_dict)
+            pid, pvc = maximum(pref_dict)
+        end
+    else
+        pid, pvc = maximum(pref_dict)
+        sid, svc = maximum(suff_dict)
+        leftover = pvc - svc
+        while length(pref_dict)>length(suff_dict)
+            if leftover < 0 
+                push!(u.wire_info.prefix_info[pid],(sid, offset, min(pref_dict[pid], suff_dict[sid])))
+                delete!(pref_dict,pid)
+                sid, svc = maximum(pref_dict)
+                offset += 1
+                leftover += pvc
+            else
+                delete!(suff_dict,sid)
+                offset = 0
+                sid, svc = maximum(suff_dict)
+                leftover = pvc - svc
+            end
+        end
+        offset = 0
+        while length(suff_dict)!=0
+            push!(u.wire_info.prefix_info[pid],(sid, offset, min(pref_dict[pid], suff_dict[sid])))
+            delete!(suff_dict,sid)
+            
+            delete!(pref_dict,pid)
+            if length(suff_dict)==0
+                break
+            end
+            sid, svc = maximum(suff_dict)
+            pid, pvc = maximum(pref_dict)
+        end
+    end
+    """else
+        pid, pvc = maximum(pref_dict)
+        sid, svc = maximum(suff_dict)
+        leftover = pvc - svc
+        while !isempty(suff_dict)
+            while leftover<0 && length(pref_dict)>1
+            push!(u.wire_info.prefix_id[pid],(sid, offset, min(pref_dict[pid], suff_dict[sid])))
+            offset +=1
+            delete!(pref_dict,pid)
+            pid, pvc = maximum(pref_dict)
+            leftover += pvc
+            end
+            if length(pref_dict) == 1
+                push!(u.wire_info.prefix_id[pid],(sid, offset, min(pref_dict[pid], suff_dict[sid])))
+               
+            end
+            delete!(suff_dict,sid)
+            sid, svc = maximum(pref_dict)
+        end
+    end
+"""
+"""
     if fan_out
         
         pid, pvc = maximum(pref_dict)
@@ -332,9 +424,8 @@ function setup_wiring(u :: macro_node)
 
     end
 
-
-
-    
+"""
+ 
 end
 
 
