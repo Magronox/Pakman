@@ -348,12 +348,12 @@ function IS(G::DefaultDict)#, Alphabet:: Vector{Char}, k :: Int64)
 
     for node in keys(G)
         max_kmer = node
-        print("node",DNASeq_to_string(node[1]),"\n\n")
+        #print("node",DNASeq_to_string(node[1]),"\n\n")
         for (pid, p_kmer) in G[node].prefixes
             if p_kmer[1].len == 0 ## Terminal
                 continue
             end
-            print(DNASeq_to_string(p_kmer[1]),"\n")
+            #print(DNASeq_to_string(p_kmer[1]),"\n")
             
             pred_node = pred_neigh(node[1], p_kmer)
             if pred_node == Nothing
