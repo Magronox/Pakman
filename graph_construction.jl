@@ -93,7 +93,7 @@ function graph_creator(kmer_list :: DefaultDict, Alphabet :: Vector{Char}, C :: 
                     temp = kmerge(c,x_prime_key, false)
                     node = [DNASeq(vcat(zeros(Int64,64-k+1),temp.bit1[end-k+1:end-1]),vcat(zeros(Int64,64-k+1),temp.bit2[end-k+1:end-1]),k-1)]
 
-                    if  node!= [x_prime_key] && temp in keys(kmer_list)
+                    if  temp in keys(kmer_list) #&& node!= [x_prime_key]
                         u.prefixes[pid] = string_to_DNASeq(string(c))
                         vc = ceil(Int64,kmer_list[temp]/C)
                         u.prefix_counts[pid] = (kmer_list[temp],vc)
@@ -106,7 +106,7 @@ function graph_creator(kmer_list :: DefaultDict, Alphabet :: Vector{Char}, C :: 
                     temp = kmerge(c,x_prime_key, true)
                     node = [DNASeq(vcat(zeros(Int64,64-k+1),temp.bit1[end-k+2:end]),vcat(zeros(Int64,64-k+1),temp.bit2[end-k+2:end]),k-1)]
 
-                    if node != [x_prime_key] && temp in keys(kmer_list)
+                    if  temp in keys(kmer_list) # && node != [x_prime_key] 
                         u.suffixes[sid] = string_to_DNASeq(string(c))
                         if length(u.suffixes[sid])==0
                             print("error\n",string_to_DNASeq(string(c))[1],"\n\n")
@@ -145,289 +145,132 @@ end
 
 
         
-function setup_wiring(u :: macro_node)
+
+
+function setup_wiring(u::macro_node)
+    sc, pc = 0,0
     
-    terminal_key = 0
-
-    if isempty(u.prefixes)
-        prefix_info_2 = zeros(Int64,0)
-        prefix_info_3 = zeros(Int64,0)
-    else
-        prefix_info_2 = zeros(Int64, maximum(keys(u.prefixes)))
-        prefix_info_3 = zeros(Int64, maximum(keys(u.prefixes)))
+    for (i,~) in u.prefixes
+        pc += last(u.prefix_counts[i])
     end
-    ### initialize count for prefixes wire_info
-    #count = min(maximum(last.(values(u.prefix_counts))),maximum(last.(values(u.suffix_counts))))
-    #for pid in keys(u.prefixes)
-    #    
-    #    prefix_info_3[pid] = count
-        #u.wire_info[pid][3] = count
-    #end
-
-    sc = 0
-    pc = 0
-    #null_sid = -1
-    #null_pid = -1
-    for temp in keys(u.suffixes)
-        sc += u.suffix_counts[temp][2]
+    for (i,~) in u.suffixes
+        sc += last(u.suffix_counts[i])
     end
-    for temp in keys(u.prefixes)
-        pc += u.prefix_counts[temp][2]
-    end
-
-    ## initialize wire_info len and offset_in_suffix
-    u.wire_info.len = length(u.prefixes) + length(u.suffixes) + 1
-    #for i in u.prefixes
-    #    pid,~ = i
-    #    prefix_info_2[pid] = length(u.suffixes)
-        #u.wire_info[id][2] = length(u.suffixes)
-    #end
-
-    if pc>sc
-        u.prefix_terminal = false
+    
+    if pc > sc
+        u.suffixes[length(u.suffixes)+1] = VTerminal
+        
+        push!(u.suffix_terminal_id,length(u.suffixes))
         u.suffix_terminal = true
+        u.suffix_counts[length(u.suffixes)] = (1,pc - sc)
         
-        if isempty(u.suffixes)
-            sid = 1
-        else
-            sid = maximum(keys(u.suffixes)) + 1
-        end
-
-        u.suffixes[sid] = VTerminal
-        push!(u.suffix_terminal_id,sid)
-        u.suffix_counts[sid] = (1, pc- sc)
-        terminal_key = sid
-
-
-    elseif sc>pc
+    else
         
+        u.prefixes[length(u.prefixes)+1] = VTerminal
+        push!(u.prefix_terminal_id,length(u.prefixes))
         u.prefix_terminal = true
-        u.suffix_terminal = false
-        
-        if isempty(u.prefixes)
-            pid = 1
-        else
-            pid = maximum(keys(u.prefixes)) + 1
-        end
-        push!(u.prefix_terminal_id , pid)
-        #print(u.prefixes[pid],"\n")
-        u.prefixes[pid] = VTerminal
-        u.prefix_counts[pid] = (1, sc - pc)
-        push!(prefix_info_2,0)
-        push!(prefix_info_3,0)
-
-        terminal_key = pid
+        u.prefix_counts[length(u.prefixes)] = (1, sc - pc)
     end
 
-    ## greedy matching
-    
     pref_dict = Dict(keys(u.prefix_counts) .=> getfield.(values(u.prefix_counts),2))
     suff_dict = Dict(keys(u.suffix_counts) .=> getfield.(values(u.suffix_counts),2))
-    #set_pid = Set(collect(1:length(u.prefixes)))
- 
-    #phase of the greedy algorithm
-    ##
-    fan_out = (length(u.suffixes) >= length(u.prefixes))
-    #finished = isempty(pref_dict) && isempty(suff_dict)
-    offset = 0
-    finished = false
-    if fan_out
+    offset_in_suffix = 0
+
+    if length(u.suffixes)>length(u.prefixes)
+        pid,~ = maximum(pref_dict)
+        sid,~ = maximum(suff_dict)
+        leftover = pref_dict[pid] - suff_dict[sid]
+        offset_in_suffix = 0
+
+        while(length(suff_dict)>length(pref_dict))
+
+            if leftover <= 0
+                push!(u.wire_info.prefix_info[pid],(sid, offset_in_suffix, suff_dict[sid]))
+                #count = min(pref_dict[pid],suff_dict[sid])
+                delete!(pref_dict, pid)
+                delete!(suff_dict, sid)
+                if length(suff_dict) != 0
+                    pid,~ = maximum(pref_dict)
+                    sid,~ = maximum(suff_dict)
+                    leftover = pref_dict[pid] - suff_dict[sid]
+                end
+                offset_in_suffix = 0
+            else
+                push!(u.wire_info.prefix_info[pid],(sid, offset_in_suffix, suff_dict[sid]))
+                #
+                delete!(suff_dict,pid)
+                sid,~ = maximum(suff_dict)
+                leftover -= suff_dict[sid]
+                #offset_in_suffix += count
+            end
+        end
         
-        pid, pvc = maximum(pref_dict)
-        sid, svc = maximum(suff_dict)
-        leftover = pvc - svc
-        while length(suff_dict)>length(pref_dict)
-            if leftover > 0 
-                push!(u.wire_info.prefix_info[pid],(sid, offset, min(pref_dict[pid], suff_dict[sid])))
-                delete!(suff_dict,sid)
-                sid, svc = maximum(suff_dict)
-                leftover -= svc
-            else
-                delete!(pref_dict,pid)
-                offset = 0
-                pid, pvc = maximum(pref_dict)
-                leftover = pvc - svc
-            end
-        end
-        offset = 0
-        while length(suff_dict)!=0
-            push!(u.wire_info.prefix_info[pid],(sid, offset, min(pref_dict[pid], suff_dict[sid])))
+
+        while(length(suff_dict) != 0)
+            push!(u.wire_info.prefix_info[pid],(sid, offset_in_suffix, suff_dict[sid]))
+            delete!(pref_dict, pid)
             delete!(suff_dict,sid)
-            delete!(pref_dict,pid)
-            if length(suff_dict)==0
-                break
+            if length(suff_dict) != 0
+                pid,~ = maximum(pref_dict)
+                sid,~ = maximum(suff_dict)
+                leftover = pref_dict[pid] - suff_dict[sid]
             end
-            sid, svc = maximum(suff_dict)
-            pid, pvc = maximum(pref_dict)
+            offset_in_suffix = 0
         end
+
     else
-        pid, pvc = maximum(pref_dict)
-        sid, svc = maximum(suff_dict)
-        leftover = pvc - svc
-        while length(pref_dict)>length(suff_dict)
-            if leftover < 0 
-                push!(u.wire_info.prefix_info[pid],(sid, offset, min(pref_dict[pid], suff_dict[sid])))
-                delete!(pref_dict,pid)
-                sid, svc = maximum(pref_dict)
-                offset += 1
-                leftover += pvc
-            else
-                delete!(suff_dict,sid)
-                offset = 0
-                sid, svc = maximum(suff_dict)
-                leftover = pvc - svc
-            end
-        end
-        offset = 0
-        while length(suff_dict)!=0
-            push!(u.wire_info.prefix_info[pid],(sid, offset, min(pref_dict[pid], suff_dict[sid])))
-            delete!(suff_dict,sid)
+
+        pid,~ = maximum(pref_dict)
+        sid,~ = maximum(suff_dict)
+        leftover = pref_dict[pid] - suff_dict[sid]
+        count = min(pref_dict[pid],suff_dict[sid])
+
+        while(length(pref_dict)>length(suff_dict))
             
-            delete!(pref_dict,pid)
-            if length(suff_dict)==0
-                break
+            if leftover >= 0
+                push!(u.wire_info.prefix_info[pid],(sid, offset_in_suffix, suff_dict[sid]))
+                offset_in_suffix += count
+                #count = min(pref_dict[pid],suff_dict[sid])
+                delete!(pref_dict, pid)
+            
+                if length(suff_dict) != 1
+                    delete!(suff_dict, sid)
+                    offset_in_suffix = 0
+                end
+                if length(suff_dict) != 0
+                    pid,~ = maximum(pref_dict)
+                    sid,~ = maximum(suff_dict)
+                    leftover = pref_dict[pid] - suff_dict[sid]
+                    count = min(pref_dict[pid],suff_dict[sid])
+
+                end
+                
+            else
+                push!(u.wire_info.prefix_info[pid],(sid, offset_in_suffix, suff_dict[sid]))
+                count = min(pref_dict[pid],suff_dict[sid])
+                delete!(pref_dict,pid)
+                pid,~ = maximum(pref_dict)
+                leftover += pref_dict[pid]
+                offset_in_suffix += count
             end
-            sid, svc = maximum(suff_dict)
-            pid, pvc = maximum(pref_dict)
         end
-    end
-    """else
-        pid, pvc = maximum(pref_dict)
-        sid, svc = maximum(suff_dict)
-        leftover = pvc - svc
-        while !isempty(suff_dict)
-            while leftover<0 && length(pref_dict)>1
-            push!(u.wire_info.prefix_id[pid],(sid, offset, min(pref_dict[pid], suff_dict[sid])))
-            offset +=1
-            delete!(pref_dict,pid)
-            pid, pvc = maximum(pref_dict)
-            leftover += pvc
-            end
-            if length(pref_dict) == 1
-                push!(u.wire_info.prefix_id[pid],(sid, offset, min(pref_dict[pid], suff_dict[sid])))
-               
-            end
+
+        while(length(suff_dict) != 0)
+            push!(u.wire_info.prefix_info[pid],(sid, offset_in_suffix, suff_dict[sid]))
+            delete!(pref_dict, pid)
             delete!(suff_dict,sid)
-            sid, svc = maximum(pref_dict)
-        end
-    end
-"""
-"""
-    if fan_out
-        
-        pid, pvc = maximum(pref_dict)
-        sid, svc = maximum(suff_dict)
-        #print(pid)
-        #push!(u.wire_info.prefix_info[pid] ,(1,1,1))
-        push!(u.wire_info.prefix_info[pid] ,(sid, offset, min(pref_dict[pid], suff_dict[sid])))
-        finished = isempty(pref_dict) && isempty(suff_dict)
-        leftover = svc - pvc
-        delete!(suff_dict,sid)
-        
-        #pop!(set_sid,sid)
-
-        while(!finished)
-
-            if (length(pref_dict)-1) == length(suff_dict)
-                
-                delete!(pref_dict,pid)
-                for i in 1:length(pref_dict)
-                    pid, pvc = maximum(pref_dict)
-                    sid, svc = maximum(suff_dict)
-                    push!(u.wire_info.prefix_info[pid] ,(sid, offset, min(pref_dict[pid], suff_dict[sid])))
-                    delete!(suff_dict,sid)
-                    delete!(pref_dict,pid)
-                end
-                
-                break
-
-            elseif leftover >= 0
-                
-                delete!(pref_dict,pid)
-                #pop!(set_pid,pid)
-                if isempty(pref_dict) && isempty(suff_dict)
-                    break 
-                else
-                    
-                    pid, pvc = maximum(pref_dict)
-                    sid, svc = maximum(suff_dict)
-                    push!(u.wire_info.prefix_info[pid] ,(sid, offset, min(pref_dict[pid], suff_dict[sid])))
-                    finished = isempty(pref_dict) && isempty(suff_dict)
-                    leftover = svc - pvc
-                    delete!(suff_dict,sid)
-                    
-                end
-            else 
-                
-                
-                sid, svc = maximum(suff_dict)
-                push!(u.wire_info.prefix_info[pid] ,(sid, offset, min(pref_dict[pid], suff_dict[sid])))
-                finished = isempty(pref_dict) && isempty(suff_dict)
-                leftover += svc
-                delete!(suff_dict,sid)
-                
-                
+            if length(suff_dict) != 0
+                pid,~ = maximum(pref_dict)
+                sid,~ = maximum(suff_dict)
+                leftover = pref_dict[pid] - suff_dict[sid]
             end
+            offset_in_suffix = 0
         end
-    else
 
-        pid, pvc = maximum(pref_dict)
-        sid, svc = maximum(suff_dict)
-        push!(u.wire_info.prefix_info[pid] ,(sid, offset, min(pref_dict[pid], suff_dict[sid])))
-        leftover = svc - pvc
-        delete!(pref_dict,pid)
-        offset += 1
-        #finished = isempty(pref_dict) && isempty(suff_dict)
-        
-        #pop!(set_sid,sid)
-
-        while(!finished)
-
-            if length(pref_dict) == (length(suff_dict)-1)
-                delete!(suff_dict,sid)
-                offset = 0 
-                for i in 1:length(pref_dict)
-                    pid, pvc = maximum(pref_dict)
-                    sid, svc = maximum(suff_dict)
-                    push!(u.wire_info.prefix_info[pid] ,(sid, offset, min(pref_dict[pid], suff_dict[sid])))
-                    delete!(suff_dict,sid)
-                    delete!(pref_dict,pid)
-                    
-                end
-                break
-
-            elseif leftover <= 0
-                delete!(suff_dict,sid)
-                #pop!(pref_dict,pid)
-                if isempty(pref_dict) && isempty(suff_dict)
-                    break 
-                else
-                    pid, pvc = maximum(pref_dict)
-                    sid, svc = maximum(suff_dict)
-                    push!(u.wire_info.prefix_info[pid] ,(sid, offset, min(pref_dict[pid], suff_dict[sid])))
-                    leftover = svc - pvc
-                    delete!(pref_dict,pid)
-                    offset += 1
-                    finished = isempty(pref_dict) && isempty(suff_dict)
-                end
-            else 
-                
-                pid, pvc = maximum(pref_dict)
-                push!(u.wire_info.prefix_info[pid] ,(sid, offset, min(pref_dict[pid], suff_dict[sid])))
-                leftover -= pvc
-                delete!(pref_dict,pid)
-                offset += 1
-                finished = isempty(pref_dict) && isempty(suff_dict)
-            end
-        end
 
 
     end
 
-"""
- 
 end
-
-
 ### test
 ### G = graph_creator(kmer_list,['A','C','G','T'], 5)
