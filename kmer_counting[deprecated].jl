@@ -654,3 +654,131 @@ end
 
 """
 
+"""
+
+       
+
+
+function setup_wiring(u::macro_node)
+    sc, pc = 0,0
+    
+    for (i,~) in u.prefixes
+        pc += last(u.prefix_counts[i])
+    end
+    for (i,~) in u.suffixes
+        sc += last(u.suffix_counts[i])
+    end
+    
+    if pc > sc
+        @assert(u.suffixes[length(u.suffixes)] == VTerminal)
+        u.suffix_counts[length(u.suffixes)] = (1,pc - sc)
+        
+    else
+        
+        @assert(u.prefixes[length(u.prefixes)] == VTerminal)
+        u.prefix_counts[length(u.prefixes)] = (1, sc - pc)
+
+    end
+
+    pref_dict = Dict(keys(u.prefix_counts) .=> getfield.(values(u.prefix_counts),2))
+    suff_dict = Dict(keys(u.suffix_counts) .=> getfield.(values(u.suffix_counts),2))
+    offset_in_suffix = 0
+
+    if length(u.suffixes)>length(u.prefixes)
+        pid,~ = maximum(pref_dict)
+        sid,~ = maximum(suff_dict)
+        leftover = pref_dict[pid] - suff_dict[sid]
+        offset_in_suffix = 0
+
+        while(length(suff_dict)>length(pref_dict))
+
+            if leftover <= 0
+                push!(u.wire_info[pid],(sid, offset_in_suffix, suff_dict[sid]))
+                #count = min(pref_dict[pid],suff_dict[sid])
+                delete!(pref_dict, pid)
+                delete!(suff_dict, sid)
+                if length(suff_dict) != 0
+                    pid,~ = maximum(pref_dict)
+                    sid,~ = maximum(suff_dict)
+                    leftover = pref_dict[pid] - suff_dict[sid]
+                end
+                offset_in_suffix = 0
+            else
+                push!(u.wire_info[pid],(sid, offset_in_suffix, suff_dict[sid]))
+                #
+                delete!(suff_dict,pid)
+                sid,~ = maximum(suff_dict)
+                leftover -= suff_dict[sid]
+                #offset_in_suffix += count
+            end
+        end
+        
+
+        while(length(suff_dict) != 0)
+            push!(u.wire_info[pid],(sid, offset_in_suffix, suff_dict[sid]))
+            delete!(pref_dict, pid)
+            delete!(suff_dict,sid)
+            if length(suff_dict) != 0
+                pid,~ = maximum(pref_dict)
+                sid,~ = maximum(suff_dict)
+                leftover = pref_dict[pid] - suff_dict[sid]
+            end
+            offset_in_suffix = 0
+        end
+
+    else
+
+        pid,~ = maximum(pref_dict)
+        sid,~ = maximum(suff_dict)
+        leftover = pref_dict[pid] - suff_dict[sid]
+        count = min(pref_dict[pid],suff_dict[sid])
+
+        while(length(pref_dict)>length(suff_dict))
+            
+            if leftover >= 0
+                push!(u.wire_info[pid],(sid, offset_in_suffix, suff_dict[sid]))
+                offset_in_suffix += count
+                #count = min(pref_dict[pid],suff_dict[sid])
+                delete!(pref_dict, pid)
+            
+                if length(suff_dict) != 1
+                    delete!(suff_dict, sid)
+                    offset_in_suffix = 0
+                end
+                if length(suff_dict) != 0
+                    pid,~ = maximum(pref_dict)
+                    sid,~ = maximum(suff_dict)
+                    leftover = pref_dict[pid] - suff_dict[sid]
+                    count = min(pref_dict[pid],suff_dict[sid])
+
+                end
+                
+            else
+                push!(u.wire_info[pid],(sid, offset_in_suffix, suff_dict[sid]))
+                count = min(pref_dict[pid],suff_dict[sid])
+                delete!(pref_dict,pid)
+                pid,~ = maximum(pref_dict)
+                leftover += pref_dict[pid]
+                offset_in_suffix += count
+            end
+        end
+
+        while(length(suff_dict) != 0)
+            push!(u.wire_info[pid],(sid, offset_in_suffix, suff_dict[sid]))
+            delete!(pref_dict, pid)
+            delete!(suff_dict,sid)
+            if length(suff_dict) != 0
+                pid,~ = maximum(pref_dict)
+                sid,~ = maximum(suff_dict)
+                leftover = pref_dict[pid] - suff_dict[sid]
+            end
+            offset_in_suffix = 0
+        end
+
+
+
+    end
+
+end
+
+"""

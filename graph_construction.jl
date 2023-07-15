@@ -11,13 +11,14 @@ Base.@kwdef mutable struct macro_node
     label = DNASeq#BitArray{1}(undef,64)
     prefixes = DefaultDict{Int64, Vector{DNASeq}}(DNASeq[])
     prefix_counts = Dict{Int64, Tuple}()
-    prefix_terminal_id = []
+    prefixes_terminal = Vector{Bool}()
     prefix_terminal = false
     suffixes = DefaultDict{Int64, Vector{DNASeq}}(DNASeq[])
     suffix_counts = Dict{Int64,Tuple}()
     suffix_terminal = false
-    suffix_terminal_id = []
-    wire_info = wire_node()
+    suffixes_terminal = Vector{Bool}()
+    wire_info = DefaultDict{Int64, Set{Tuple}}(Set())
+    prefix_begin_info = DefaultDict{Int64,Tuple}((-1,-1))
 end
 
 
@@ -28,11 +29,6 @@ function Base.isequal(a :: macro_node, b :: macro_node)
 end
 function Base.hash(a :: macro_node)
     return Base.hash(a.id)
-end
-
-Base.@kwdef mutable struct wire_node
-    prefix_info = DefaultDict{Int64, Set{Tuple}}(Set())
-    len = 0
 end
 
 
@@ -70,6 +66,15 @@ Base.isless(p::Pair, q::Pair) =
 end
 
 
+## this function is used for wiring:
+
+
+function comp_rev(counts)
+    a(i,j) = (last(counts[i]) > last(counts[j])) || ((first(counts[i]) == first(counts[j])) && (first(counts[i])> first(counts[j])))
+    return  a
+end
+
+
 function graph_creator(kmer_list :: DefaultDict, Alphabet :: Vector{Char}, C :: Int64)
     G = DefaultDict{Vector{DNASeq},macro_node}(0)
     vc = 0
@@ -95,6 +100,7 @@ function graph_creator(kmer_list :: DefaultDict, Alphabet :: Vector{Char}, C :: 
 
                     if  temp in keys(kmer_list) #&& node!= [x_prime_key]
                         u.prefixes[pid] = string_to_DNASeq(string(c))
+                        push!(u.prefixes_terminal, false)
                         vc = ceil(Int64,kmer_list[temp]/C)
                         u.prefix_counts[pid] = (kmer_list[temp],vc)
                         u.prefix_terminal = false
@@ -111,13 +117,14 @@ function graph_creator(kmer_list :: DefaultDict, Alphabet :: Vector{Char}, C :: 
                         if length(u.suffixes[sid])==0
                             print("error\n",string_to_DNASeq(string(c))[1],"\n\n")
                         end
+                        push!(u.suffixes_terminal, false)
                         vc = ceil(Int64,kmer_list[temp]/C)
                         u.suffix_counts[sid] = (kmer_list[temp],vc)
                         u.suffix_terminal = false
                         sid += 1
                     end
                 end
-                
+                wiring_prep(u)
                 setup_wiring(u)
                 G[u.label] = u
             end
@@ -142,133 +149,86 @@ function graph_creator(kmer_list :: DefaultDict, Alphabet :: Vector{Char}, C :: 
 
 end
 
+function wiring_prep(u :: macro_node)
+    u.prefixes[length(u.prefixes)+1] = VTerminal
+    push!(u.prefixes_terminal, true)
+    u.prefix_counts[length(u.prefixes)] = (-1,-1)
+    u.suffixes[length(u.suffixes)+1] = VTerminal
+    push!(u.suffixes_terminal, true)
+    u.suffix_counts[length(u.suffixes)] = (-1,-1)
+end
 
-
-        
-
-
-function setup_wiring(u::macro_node)
+ 
+function setup_wiring(u :: macro_node)
     sc, pc = 0,0
-    
-    for (i,~) in u.prefixes
-        pc += last(u.prefix_counts[i])
-    end
+    null_sid, null_pid = -1,-1
     for (i,~) in u.suffixes
         sc += last(u.suffix_counts[i])
     end
-    
-    if pc > sc
-        u.suffixes[length(u.suffixes)+1] = VTerminal
-        
-        push!(u.suffix_terminal_id,length(u.suffixes))
-        u.suffix_terminal = true
-        u.suffix_counts[length(u.suffixes)] = (1,pc - sc)
-        
-    else
-        
-        u.prefixes[length(u.prefixes)+1] = VTerminal
-        push!(u.prefix_terminal_id,length(u.prefixes))
-        u.prefix_terminal = true
-        u.prefix_counts[length(u.prefixes)] = (1, sc - pc)
+    for (i,~) in u.prefixes
+        pc += last(u.prefix_counts[i])
     end
 
-    pref_dict = Dict(keys(u.prefix_counts) .=> getfield.(values(u.prefix_counts),2))
-    suff_dict = Dict(keys(u.suffix_counts) .=> getfield.(values(u.suffix_counts),2))
-    offset_in_suffix = 0
-
-    if length(u.suffixes)>length(u.prefixes)
-        pid,~ = maximum(pref_dict)
-        sid,~ = maximum(suff_dict)
-        leftover = pref_dict[pid] - suff_dict[sid]
-        offset_in_suffix = 0
-
-        while(length(suff_dict)>length(pref_dict))
-
-            if leftover <= 0
-                push!(u.wire_info.prefix_info[pid],(sid, offset_in_suffix, suff_dict[sid]))
-                #count = min(pref_dict[pid],suff_dict[sid])
-                delete!(pref_dict, pid)
-                delete!(suff_dict, sid)
-                if length(suff_dict) != 0
-                    pid,~ = maximum(pref_dict)
-                    sid,~ = maximum(suff_dict)
-                    leftover = pref_dict[pid] - suff_dict[sid]
-                end
-                offset_in_suffix = 0
-            else
-                push!(u.wire_info.prefix_info[pid],(sid, offset_in_suffix, suff_dict[sid]))
-                #
-                delete!(suff_dict,pid)
-                sid,~ = maximum(suff_dict)
-                leftover -= suff_dict[sid]
-                #offset_in_suffix += count
+    for (i,j) in u.suffixes
+        if length(j) == 1 && j[1].len == 0
+            null_sid = i
+            if last(u.suffix_counts[i]) == -1
+                 u.suffix_counts[i] = (1,pc-sc)
             end
         end
+    end
+    for (i,j) in u.prefixes
+        if length(j) == 1 & j[1].len == 0
+            null_pid = i
+            if last(u.prefix_counts[i]) == -1
+                u.prefix_counts[i] = (1, sc-pc)
+            end
+        end
+    end
+
+    leftover = sc + last(u.suffix_counts[null_sid])
+
+    last_largest_pid, prefix_begin_pos = -1,-1
+    wire_idx = 1
+    var_p, var_s = 0,0
+    top_p, top_s = 1,1
+    p_size = 0
+    offset_in_suffix = zeros(Int64, length(u.suffixes))
+
+    indices_s = collect(1:length(u.suffixes))
+    indices_p = collect(1:length(u.prefixes))
+
+    indices_s = sort(indices_s, lt = comp_rev(u.suffixes))
+    indices_p = sort(indices_p, lt = comp_rev(u.prefixes))
+    while leftover > 0
+        largest_sid = indices_s[top_s];
+        largest_pid = indices_p[top_p];
+
         
-
-        while(length(suff_dict) != 0)
-            push!(u.wire_info.prefix_info[pid],(sid, offset_in_suffix, suff_dict[sid]))
-            delete!(pref_dict, pid)
-            delete!(suff_dict,sid)
-            if length(suff_dict) != 0
-                pid,~ = maximum(pref_dict)
-                sid,~ = maximum(suff_dict)
-                leftover = pref_dict[pid] - suff_dict[sid]
-            end
-            offset_in_suffix = 0
+        count = min(last(u.prefix_counts[largest_pid]) - var_p,last(u.suffix_counts[largest_sid]) - var_s)
+        push!(u.wire_info[wire_idx], (largest_sid, offset_in_suffix[largest_sid],count))
+        if last_largest_pid != largest_pid
+            prefix_begin_pos = wire_idx
+            last_largest_pid = largest_pid
         end
-
-    else
-
-        pid,~ = maximum(pref_dict)
-        sid,~ = maximum(suff_dict)
-        leftover = pref_dict[pid] - suff_dict[sid]
-        count = min(pref_dict[pid],suff_dict[sid])
-
-        while(length(pref_dict)>length(suff_dict))
-            
-            if leftover >= 0
-                push!(u.wire_info.prefix_info[pid],(sid, offset_in_suffix, suff_dict[sid]))
-                offset_in_suffix += count
-                #count = min(pref_dict[pid],suff_dict[sid])
-                delete!(pref_dict, pid)
-            
-                if length(suff_dict) != 1
-                    delete!(suff_dict, sid)
-                    offset_in_suffix = 0
-                end
-                if length(suff_dict) != 0
-                    pid,~ = maximum(pref_dict)
-                    sid,~ = maximum(suff_dict)
-                    leftover = pref_dict[pid] - suff_dict[sid]
-                    count = min(pref_dict[pid],suff_dict[sid])
-
-                end
-                
-            else
-                push!(u.wire_info.prefix_info[pid],(sid, offset_in_suffix, suff_dict[sid]))
-                count = min(pref_dict[pid],suff_dict[sid])
-                delete!(pref_dict,pid)
-                pid,~ = maximum(pref_dict)
-                leftover += pref_dict[pid]
-                offset_in_suffix += count
-            end
+        p_size += 1
+        wire_idx += 1
+        leftover -= count
+        var_p += count
+        var_s += count
+        offset_in_suffix[largest_sid] += count
+        if var_p == last(u.prefix_counts[largest_pid])
+            var_p = 0
+            top_p += 1
+            u.prefix_begin_info[largest_pid] = (prefix_begin_pos, p_size)
+            p_size = 0
         end
-
-        while(length(suff_dict) != 0)
-            push!(u.wire_info.prefix_info[pid],(sid, offset_in_suffix, suff_dict[sid]))
-            delete!(pref_dict, pid)
-            delete!(suff_dict,sid)
-            if length(suff_dict) != 0
-                pid,~ = maximum(pref_dict)
-                sid,~ = maximum(suff_dict)
-                leftover = pref_dict[pid] - suff_dict[sid]
-            end
-            offset_in_suffix = 0
+  
+        if var_s == last(u.suffix_counts[largest_sid])
+            var_s = 0
+            top_s += 1
         end
-
-
-
+  
     end
 
 end

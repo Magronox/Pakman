@@ -3,10 +3,16 @@ using DataStructures, Random
 
 
 struct DNASeq
-    bit1::BitArray{1}
-    bit2::BitArray{1}
+    bit1 :: BitArray{1}
+    bit2 :: BitArray{1}
     len :: Int64
 end
+
+#struct DNAVseq
+#    bit1 :: Vector{BitArray{1}}
+#    bit2 :: Vector{BitArray{1}}
+#    len :: Int64
+#end
 
 import Base.isequal, Base.hash
 
