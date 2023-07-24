@@ -125,7 +125,7 @@ function graph_creator(kmer_list :: DefaultDict, Alphabet :: Vector{Char}, C :: 
                     end
                 end
                 wiring_prep(u)
-                setup_wiring(u)
+                setup_wiring!(u)
                 G[u.label] = u
             end
             
@@ -159,7 +159,7 @@ function wiring_prep(u :: macro_node)
 end
 
  
-function setup_wiring(u :: macro_node)
+function setup_wiring!(u :: macro_node)
     sc, pc = 0,0
     null_sid, null_pid = -1,-1
     for (i,~) in u.suffixes
@@ -179,6 +179,7 @@ function setup_wiring(u :: macro_node)
             null_sid = i
             if last(u.suffix_counts[i]) == -1
                  u.suffix_counts[i] = (1,max(pc-sc,0))
+                 break
             end
         end
     end
@@ -188,6 +189,9 @@ function setup_wiring(u :: macro_node)
             null_pid = i
             if last(u.prefix_counts[i]) == -1
                 u.prefix_counts[i] = (1, max(sc-pc,0))
+                break
+                @assert(null_pid == length(u.prefixes))
+
             end
         end
     end
@@ -201,8 +205,8 @@ function setup_wiring(u :: macro_node)
     p_size = 0
     offset_in_suffix = zeros(Int64, length(u.suffixes))
 
-    indices_s = collect(1:length(u.suffixes))
-    indices_p = collect(1:length(u.prefixes))
+    indices_s = collect(1:length(keys(u.suffixes)))
+    indices_p = collect(1:length(keys(u.prefixes)))
     
     indices_s = sort(indices_s, lt = Comp_rev(u.suffix_counts))
     indices_p = sort(indices_p, lt = Comp_rev(u.prefix_counts))
