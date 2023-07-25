@@ -2,10 +2,11 @@
 include("graph_construction.jl")
 include("kmer_counting_v2.jl")
 
-function compact_graph!( G :: DefaultDict{Vector{DNASeq},macro_node}, k:: Int64, compaction_times :: Int64)
+function compact_graph!( G :: DefaultDict{Vector{DNASeq},macro_node}, compaction_times :: Int64)
     num_mn = length(G)
     contigs = []
     pcontig_list= []
+    #transfer_nodeInfo = []
 
     for t in 1:compaction_times
         i_s = IS(G)
@@ -17,9 +18,11 @@ function compact_graph!( G :: DefaultDict{Vector{DNASeq},macro_node}, k:: Int64,
         end
 
         pcontig_list, transfer_nodeInfo = iterate_pack(G,i_s)
-        #print(transfer_nodeInfo,"\n\n\n")
+        print(typeof(transfer_nodeInfo),"\n")
+
 
         rewire_list = serialize_transfer!(G,transfer_nodeInfo)
+
         for i in rewire_list
             G[i].wire_info = DefaultDict{Int64, Set{Tuple}}(Set())
             G[i].prefix_begin_info = DefaultDict{Int64,Tuple}((-1,-1))
@@ -28,10 +31,11 @@ function compact_graph!( G :: DefaultDict{Vector{DNASeq},macro_node}, k:: Int64,
         for i in i_s
             delete!(G,i)
         end
+
     
         num_mn = length(G)
         push!(contigs,pcontig_list)
-        print("contigos",contigs,"\n\n")
+        
         for (i,j) in G
             initiate_wiring!(j)
             setup_wiring!(j)
@@ -441,7 +445,7 @@ end
 
 function iterate_pack(G :: DefaultDict, IS_ :: Set)
 
-   transfer_nodeInfo = DefaultDict{Vector{DNASeq}, Set{Tuple}}(Set{Tuple}())
+   transfer_nodeInfo = DefaultDict{Vector{DNASeq}, Set{Tuple}}(Set(()))
    pcontig_list = Vector{}()
    self_loop = [false, false]
    itr_p = 1
@@ -453,6 +457,7 @@ function iterate_pack(G :: DefaultDict, IS_ :: Set)
    succ_node = Vector{DNASeq}()
    pred_node = Vector{DNASeq}()
     for node in IS_
+        
         #print("IS node",DNASeq_to_string(node[1]),"\n\n")
         itr_p = 1
         itr_s = 1
@@ -487,7 +492,7 @@ function iterate_pack(G :: DefaultDict, IS_ :: Set)
     end
 
     for node in IS_
-
+        
         for  k in 1:length(G[node].prefix_begin_info)
             if last(G[node].prefix_begin_info[k])>0
                 itr_p = k
@@ -523,13 +528,13 @@ function iterate_pack(G :: DefaultDict, IS_ :: Set)
                                         new_pnode_type = false
                                     end
                                 end
-                                new_ext = kmerge(pred_ext,G[node].suffixes[itr_s])
+                                new_ext = kmerge(pred_ext,G[node].prefixes[itr_p])
                                 if length(new_ext)>1 && new_ext[end-1] == Terminal
                                     new_ext = new_ext[1:end-1]
                                 elseif length(new_ext)>1 && new_ext[1] == Terminal
                                     new_ext = new_ext[2:end]
                                 end
-                                push!(transfer_nodeInfo[node] , (pred_node,pred_ext,new_ext,min(first(G[node].prefix_counts[itr_p]),first(G[node].suffix_counts[itr_s])),count,1,ssid,itr_s,new_pnode_type))
+                                push!(transfer_nodeInfo[node] , (copy(pred_node),copy(pred_ext),new_ext,min(first(G[node].prefix_counts[itr_p]),first(G[node].suffix_counts[itr_s])),count,1,ssid,itr_s,new_pnode_type))
                                 
                             end
                         end
@@ -544,13 +549,13 @@ function iterate_pack(G :: DefaultDict, IS_ :: Set)
                                         new_snode_type = false
                                     end
                                 end
-                                new_ext = kmerge(G[node].prefixes[itr_p],succ_ext)
+                                new_ext = kmerge(G[node].suffixes[itr_s],succ_ext)
                                 if length(new_ext)>1 && new_ext[2] == Terminal
                                     new_ext = new_ext[2:end]
                                 
                                 end
-    
-                                push!(transfer_nodeInfo[node] , (succ_node,succ_ext,new_ext,min(first(G[node].suffix_counts[itr_s]),first(G[node].prefix_counts[itr_p])),count,0,ppid,itr_p,new_snode_type))
+                                
+                                push!(transfer_nodeInfo[copy(node)] , (copy(succ_node),copy(succ_ext),new_ext,min(first(G[node].suffix_counts[itr_s]),first(G[node].prefix_counts[itr_p])),count,0,ppid,itr_p,new_snode_type))
                                 
                             end
                         end
@@ -562,12 +567,13 @@ function iterate_pack(G :: DefaultDict, IS_ :: Set)
 
     end
     
+    print(typeof(transfer_nodeInfo))
     return pcontig_list, transfer_nodeInfo
 end
    
 
 
-function serialize_transfer!(G :: DefaultDict, transfer_nodeInfo :: DefaultDict{Vector{DNASeq}, Set{Tuple}, Set{Tuple}})
+function serialize_transfer!(G :: DefaultDict, transfer_nodeInfo :: DefaultDict{Vector{DNASeq}, Set{Tuple}, Set{Union{}}})
    
     rewirelist = []
     #print("transfer",transfer_nodeInfo,"\n\n\n\n")

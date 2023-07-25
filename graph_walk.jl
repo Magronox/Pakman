@@ -59,7 +59,7 @@ function walk!(G:: DefaultDict, pcontig:: Vector{DNASeq}, freq, offset_in_prefix
         next_prefix_id, ~ = find_succ_ext(G, mn.label, next_mn.label)
         @assert(succ_node == next_mn)
 
-        walk(pcontig, freq_in_wire, next_off, next_prefix_id, next_mn, output);
+        walk(G, pcontig, freq_in_wire, next_off, next_prefix_id, next_mn, output);
         freq_rem -= freq_in_wire
 
 
