@@ -15,14 +15,19 @@ function compact_graph!( G :: DefaultDict{Vector{DNASeq},macro_node}, compaction
             print("empty independent set error\n")
             @assert(false)
             break
+        else
+            for i in i_s
+                print(G[i].prefixes_terminal,"p\ns",G[i].suffixes_terminal,"s\n")
+                print(G[i].wire_info,"\n")
+                print(G[i].prefix_counts,"\n",G[i].suffix_counts,"\n\n")
+            end
         end
 
         pcontig_list, transfer_nodeInfo = iterate_pack(G,i_s)
-        print(typeof(transfer_nodeInfo),"\n")
-
+        
 
         rewire_list = serialize_transfer!(G,transfer_nodeInfo)
-
+        
         for i in rewire_list
             G[i].wire_info = DefaultDict{Int64, Set{Tuple}}(Set())
             G[i].prefix_begin_info = DefaultDict{Int64,Tuple}((-1,-1))
@@ -36,11 +41,11 @@ function compact_graph!( G :: DefaultDict{Vector{DNASeq},macro_node}, compaction
         num_mn = length(G)
         push!(contigs,pcontig_list)
         
-        for (i,j) in G
-            initiate_wiring!(j)
-            setup_wiring!(j)
+        for i in rewire_list
+            initiate_wiring!(G[i])
+            setup_wiring!(G[i])
         end
-        print("loop\n",num_mn,"\n") 
+        print("loop\nsize :",num_mn,"\n", "rewire list size : ",length(rewire_list),"\n") 
         
         
     end
@@ -172,21 +177,21 @@ end
 
 end
 
-function find_succ_ext(G::DefaultDict, kmer1 ::DNASeq, kmer2 :: DNASeq)
+function find_succ_ext(G::DefaultDict, kmer1 :: Vector{DNASeq}, kmer2 :: Vector{DNASeq})
     ### find prefix of the successor(kmer2) that is connected to the suffix of kmer 1
-    k = kmer1.len +1
+    k = kmer1[1].len +1
    
-    for (pid ,prefix) in G[[kmer2]].prefixes
+    for (pid ,prefix) in G[kmer2].prefixes
 
         if prefix[1] == Terminal
             continue
         elseif length(prefix)==1 && prefix[1].len<(k-1)
             
-            if prefix[1].bit1[end-prefix[1].len+1:end] == kmer1.bit1[end-kmer1.len+1:end - kmer1.len + prefix[1].len] && prefix[1].bit2[end-prefix[1].len+1:end] == kmer1.bit2[end-kmer1.len+1:end - kmer1.len + prefix[1].len]
+            if prefix[1].bit1[end-prefix[1].len+1:end] == kmer1[1].bit1[end-kmer1[1].len+1:end - kmer1[1].len + prefix[1].len] && prefix[1].bit2[end-prefix[1].len+1:end] == kmer1[1].bit2[end-kmer1[1].len+1:end - kmer1[1].len + prefix[1].len]
                 return pid, prefix
             end
             
-        elseif prefix[1].bit1[end-prefix[1].len+1:end-prefix[1].len+k-1]==kmer1.bit1[end-(k-1)+1:end] && prefix[1].bit2[end-prefix[1].len + 1:end-prefix[1].len+k-1] == kmer1.bit2[end - (k-1)+1:end]
+        elseif prefix[1].bit1[end-prefix[1].len+1:end-prefix[1].len+k-1]==kmer1[1].bit1[end-(k-1)+1:end] && prefix[1].bit2[end-prefix[1].len + 1:end-prefix[1].len+k-1] == kmer1[1].bit2[end - (k-1)+1:end]
             
             return pid,prefix
         end
@@ -196,10 +201,10 @@ function find_succ_ext(G::DefaultDict, kmer1 ::DNASeq, kmer2 :: DNASeq)
     return Nothing
 end
 
-function find_pred_ext(G :: DefaultDict, kmer1 ::DNASeq, kmer2 :: DNASeq)
+function find_pred_ext(G :: DefaultDict, kmer1 ::Vector{DNASeq}, kmer2 :: Vector{DNASeq})
     ### find suffix of the predecessor(kmer1) that is connected to the prefix of kmer2
-    k = kmer1.len +1
-    for (sid ,suffix) in G[[kmer1]].suffixes
+    k = kmer1[1].len +1
+    for (sid ,suffix) in G[kmer1].suffixes
         #len = 0
         #len += (length(suffix)-1)*64 
         #if suffix[end] != Terminal
@@ -207,10 +212,10 @@ function find_pred_ext(G :: DefaultDict, kmer1 ::DNASeq, kmer2 :: DNASeq)
         #end
         
         if length(suffix)==1 && suffix[1].len<(k-1) && suffix[1] != VTerminal
-            if suffix[1].bit1[end-suffix[1].len+1:end] == kmer2.bit1[end - suffix[1].len+1:end] && suffix[1].bit2[end-suffix[1].len+1:end] == kmer2.bit2[end - suffix[1].len+1: end]
+            if suffix[1].bit1[end-suffix[1].len+1:end] == kmer2[1].bit1[end - suffix[1].len+1:end] && suffix[1].bit2[end-suffix[1].len+1:end] == kmer2[1].bit2[end - suffix[1].len+1: end]
                 return sid, suffix
             end
-        elseif suffix[end].bit1[end-k+2:end]==kmer2.bit1[end-(k-1)+1:end] && suffix[end].bit2[end-k+2:end] == kmer2.bit2[end - (k-1)+1:end]
+        elseif suffix[end].bit1[end-k+2:end]==kmer2[1].bit1[end-(k-1)+1:end] && suffix[end].bit2[end-k+2:end] == kmer2[1].bit2[end - (k-1)+1:end]
             return sid,suffix
         end
     end
@@ -394,17 +399,16 @@ function IS(G::DefaultDict)#, Alphabet:: Vector{Char}, k :: Int64)
     key_notin_idset = false
 
     for node in keys(G)
-
         max_kmer = node
         for (pid, p_kmer) in G[node].prefixes
             if !G[node].prefixes_terminal[pid] && p_kmer[1].len != 0
                 pred_node = pred_neigh(node[1], p_kmer)
-            end
-            if pred_node > node
-              
-                max_kmer = pred_node
-                key_notin_idset = true
-                break
+                if pred_node > node
+                    max_kmer = pred_node
+                    key_notin_idset = true
+                    break
+                end
+                
             end
 
         end
@@ -413,29 +417,32 @@ function IS(G::DefaultDict)#, Alphabet:: Vector{Char}, k :: Int64)
         if !key_notin_idset
             for (sid, s_kmer) in G[node].suffixes
             
-                if s_kmer[end].len != 0 && !G[node].prefixes_terminal[sid]
+                if s_kmer[end].len != 0 && !G[node].suffixes_terminal[sid]
 
                     
                     succ_node = succ_neigh(node[1], s_kmer)
-                    if succ_node == Nothing
+                    if succ_node == Nothing || !(succ_node in keys(G))
                         print("None\n")
                         print("Node ",node,"\nsucc_node ",succ_node,"\n s_kmer ",s_kmer,"\n\n")
                         continue
                     end
-                end
 
-                if succ_node > node
-                    max_kmer = succ_node
-                    key_notin_idset = true
-                    break
+                    if succ_node > node
+                        max_kmer = succ_node
+                        key_notin_idset = true
+                        break
+                    end
                 end
 
             end
         end
+
         if !key_notin_idset
             @assert(max_kmer == node)
             push!(IS_, node) 
-    
+        else
+            @assert(max_kmer[1].len == node[1].len)
+        
         end
         key_notin_idset = false
     end
@@ -466,15 +473,14 @@ function iterate_pack(G :: DefaultDict, IS_ :: Set)
                 itr_p = k
                 if G[node].prefixes[itr_p][1].len != 0 && !G[node].prefixes_terminal[itr_p]
                     pred_node = pred_neigh(node[1],G[node].prefixes[itr_p])
-                    ssid,pred_ext = find_pred_ext(G,pred_node[1], node[1])
+                   ssid,pred_ext = find_pred_ext(G,pred_node, node)
                 
                     for (itr_s,~,~) in G[node].wire_info[first(G[node].prefix_begin_info[k])]
-                        #itr_s = G[node].wire_info[first(G[node].prefix_begin_info[k])+t][1]
-                    
+
                         if ! (G[node].prefixes_terminal[itr_p] && G[node].suffixes_terminal[itr_s])
                             if G[node].suffixes[itr_s][1].len>0 && !G[node].suffixes_terminal[itr_s]
                                 succ_node = succ_neigh(node[1],G[node].suffixes[itr_s])
-                                ppid,succ_ext = find_succ_ext(G,node[1], succ_node[1])
+                                 ppid,succ_ext = find_succ_ext(G,node, succ_node)
                                 if pred_node == node 
                                     self_loop[1] = true
                                 end
@@ -492,64 +498,66 @@ function iterate_pack(G :: DefaultDict, IS_ :: Set)
     end
 
     for node in IS_
-        
         for  k in 1:length(G[node].prefix_begin_info)
             if last(G[node].prefix_begin_info[k])>0
                 itr_p = k
-
                 if length(G[node].prefixes[itr_p]) >0  && G[node].prefixes[itr_p][1].len != 0 && !G[node].prefixes_terminal[itr_p]
                     pred_node = pred_neigh(node[1],G[node].prefixes[itr_p])
+                    ssid, pred_ext = find_pred_ext(G,pred_node, node)
                 end
-
                 for (itr_s,~,count) in G[node].wire_info[first(G[node].prefix_begin_info[k])]
-                     
                     if G[node].prefixes_terminal[itr_p] && G[node].suffixes_terminal[itr_s]
                         push!(pcontig_list,kmerge(kmerge(G[node].prefixes[itr_p],node),G[node].suffixes[itr_s]))
                     else
+                        
                         if length(G[node].suffixes[itr_s]) > 0 && G[node].suffixes[itr_s][1].len != 0
                             succ_node = succ_neigh(node[1],G[node].suffixes[itr_s])
-                            ppid,succ_ext = find_succ_ext(G,node[1], succ_node[1])
+                            ppid,succ_ext = find_succ_ext(G,node, succ_node)
                         end
                                
-                        if pred_node == node
-                            self_loop[1] = true
-                        end
-                        if succ_node == node
-                            self_loop[2] = true
-                        end
+
                         if !G[node].prefixes_terminal[itr_p]
-                            if !self_loop[1]
+                            
+                            if pred_node != node
+                                
                                 if G[node].suffixes_terminal[itr_s]
                                     new_pnode_type = true
                                 else
-                                    if self_loop[2]
+                                    if succ_node == node
                                         new_pnode_type = true
                                     else
                                         new_pnode_type = false
                                     end
                                 end
-                                new_ext = kmerge(pred_ext,G[node].prefixes[itr_p])
-                                if length(new_ext)>1 && new_ext[end-1] == Terminal
-                                    new_ext = new_ext[1:end-1]
-                                elseif length(new_ext)>1 && new_ext[1] == Terminal
-                                    new_ext = new_ext[2:end]
-                                end
-                                push!(transfer_nodeInfo[node] , (copy(pred_node),copy(pred_ext),new_ext,min(first(G[node].prefix_counts[itr_p]),first(G[node].suffix_counts[itr_s])),count,1,ssid,itr_s,new_pnode_type))
+                                if pred_ext!=VTerminal
+                                    new_ext = kmerge(pred_ext,G[node].suffixes[itr_s])
+                                    if length(new_ext)>1 && new_ext[end-1] == Terminal
+                                        new_ext = new_ext[1:end-1]
+                                    elseif length(new_ext)>1 && new_ext[1] == Terminal
+                                        new_ext = new_ext[2:end]
+                                    end
                                 
+                                    push!(transfer_nodeInfo[copy(node)] , (copy(pred_node),copy(pred_ext),new_ext,min(first(G[node].prefix_counts[itr_p]),first(G[node].suffix_counts[itr_s])),count,1,ssid,itr_s,new_pnode_type))
+
+                                end
                             end
                         end
                         if !G[node].suffixes_terminal[itr_s]
-                            if !self_loop[2]
+                            
+                            if succ_node != node
                                 if G[node].prefixes_terminal[itr_p]
                                     new_snode_type = true
                                 else
-                                    if self_loop[1]
+                                    if pred_node == node
                                         new_snode_type = true
                                     else
                                         new_snode_type = false
                                     end
                                 end
-                                new_ext = kmerge(G[node].suffixes[itr_s],succ_ext)
+                                if succ_ext == VTerminal
+                                    continue
+                                end
+                                new_ext = kmerge(G[node].prefixes[itr_p],succ_ext)
                                 if length(new_ext)>1 && new_ext[2] == Terminal
                                     new_ext = new_ext[2:end]
                                 
@@ -567,7 +575,6 @@ function iterate_pack(G :: DefaultDict, IS_ :: Set)
 
     end
     
-    print(typeof(transfer_nodeInfo))
     return pcontig_list, transfer_nodeInfo
 end
    
@@ -579,18 +586,16 @@ function serialize_transfer!(G :: DefaultDict, transfer_nodeInfo :: DefaultDict{
     #print("transfer",transfer_nodeInfo,"\n\n\n\n")
 
     for node in keys(transfer_nodeInfo)
-            
         for i in transfer_nodeInfo[node]
                                 
             (n_node,ext,new_ext,visit_count,ccount,direction,id,pid,type) = i
-            if type 
-                print(ext,"\n",new_ext,"\n\n")
-            end
+            push!(rewirelist,n_node)
+            
             if ! (n_node in keys(G))
                 print("MN node key was not found ")
                 
             elseif direction == 1 
-                if !(new_ext in keys(G[n_node].suffixes))
+                if !(new_ext in keys(G[n_node].suffixes)) && (ext in keys(G[n_node].suffixes))
                 ##adds to suffix of next MN
 
                     l = length(G[n_node].suffixes) + 1
@@ -612,7 +617,7 @@ function serialize_transfer!(G :: DefaultDict, transfer_nodeInfo :: DefaultDict{
 
                 end
             else
-                if !(new_ext in keys(G[n_node].prefixes))
+                if !(new_ext in keys(G[n_node].prefixes)) && (ext in keys(G[n_node].suffixes))
                     ##adds to suffix of next MN
     
                         l = length(G[n_node].prefixes) + 1
@@ -636,7 +641,7 @@ function serialize_transfer!(G :: DefaultDict, transfer_nodeInfo :: DefaultDict{
 
 
    
-                push!(rewirelist,n_node)
+                
             
             end
         end
@@ -647,7 +652,7 @@ end
 
 
 
-function initiate_wiring!(u:: macro_node)
+"function initiate_wiring!(u:: macro_node)
     u.prefixes[length(u.prefixes)+1] = VTerminal
     u.suffixes[length(u.suffixes)+1] = VTerminal
     u.prefixes_terminal[length(u.prefixes)] = true
@@ -655,3 +660,4 @@ function initiate_wiring!(u:: macro_node)
     u.prefix_counts[length(u.prefixes)] = (-1,-1)
     u.suffix_counts[length(u.suffixes)] = (-1,-1)
 end
+"

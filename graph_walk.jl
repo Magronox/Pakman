@@ -25,13 +25,13 @@ function run_walk(G :: DefaultDict, pcontig_list:: Vector)
     end
     return output
 end
-
+contig_list = []
 function walk!(G:: DefaultDict, pcontig:: Vector{DNASeq}, freq, offset_in_prefix :: Int64 , mn :: macro_node, pid :: Int64, output :: Set)
     #pc_size = (length(contig)-1)*64 + contig[1].len
     freq_rem = freq
     internal_off = 0
     off_in_wire = -1
-
+    
 
     for (id,offset_in_suffix,count) in mn.wire_info[pid]
         internal_off += count
@@ -46,6 +46,7 @@ function walk!(G:: DefaultDict, pcontig:: Vector{DNASeq}, freq, offset_in_prefix
         if mn.suffixes_terminal[id]
             push!(contig_list, contig)
             push!(output, contig)
+            continue
         else
             succ_ext = mn.suffixes[id]
             key = mn.label
@@ -55,16 +56,31 @@ function walk!(G:: DefaultDict, pcontig:: Vector{DNASeq}, freq, offset_in_prefix
                 print("Error key not found\n")
             end
         end
+
         next_mn = G[succ_neigh(mn.label[1],mn.suffixes[id])]
         next_prefix_id, ~ = find_succ_ext(G, mn.label, next_mn.label)
-        @assert(succ_node == next_mn)
+        @assert(succ_node == next_mn.label)
 
-        walk(G, pcontig, freq_in_wire, next_off, next_prefix_id, next_mn, output);
+        walk!(G, pcontig, freq_in_wire, next_off, next_mn, next_prefix_id, output);
         freq_rem -= freq_in_wire
 
 
 
     end
+end
+
+
+function identify_begin_kmers(G, BeginMN)
+
+    for (i,j) in G
+        for (ii,jj) in j.prefixes
+            if j.prefix_counts[ii]>0 && j.prefixes_terminal[ii]
+                push!(begin_kmer_list, kmerge())
+            end
+        end
+    end
+
+
 end
 
 ####TEST:
@@ -76,6 +92,11 @@ end
 ## kmer_list = read_kmer(DNA_seq, length(input),k)
 
 ## G = graph_creator(kmer_list,['A','C','G','T'], 5)
-## I = IS(G,['A','C','G','T'],k)
-## G_new, ~ = compact_graph(G,k,5)
-## output = run_walk(G)
+## contig_list = []
+## G_new,ls = compact_graph(G,k,5)
+## output = run_walk(G, ls)
+
+
+
+""" contig list is defined globally, so you need to initialize it as an empty vector before running the algorithm. 
+This is because of the recursive nature of the walk algorithm."""

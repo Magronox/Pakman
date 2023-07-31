@@ -78,6 +78,11 @@ end
 function graph_creator(kmer_list :: DefaultDict, Alphabet :: Vector{Char}, C :: Int64)
     G = DefaultDict{Vector{DNASeq},macro_node}(0)
     vc = 0
+    k = 0
+    for i in keys(kmer_list)
+        k = i.len 
+        break
+    end
     for x in kmer_list
         xkey , ~ = x
         x_prime_list = read_lmer_from_kmer(xkey,k-1)

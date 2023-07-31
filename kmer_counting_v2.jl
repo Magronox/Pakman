@@ -62,7 +62,8 @@ Base.:(==)(seq1 ::Union{Vector{DNASeq},DNASeq}, seq2 :: Union{Vector{DNASeq},DNA
 
 
 function Base.isless(seq1 :: T, seq2 :: T) where T<: DNASeq
-    return [(i%2==1)*seq1.bit1[((i+1)÷2)+(i%2==0)-(i==128)]+seq1.bit2[(i÷2)+(i%2==1)]*(i%2==0) for i in 1:128]<[(i%2==1)*seq2.bit1[((i+1)÷2)+(i%2==0)-(i==128)] + seq2.bit2[(i÷ 2)+(i%2==1)]*(i%2==0) for i in 1:128]
+    return seq1.bit1 < seq2.bit1 ? true : seq1.bit2 < seq2.bit2 
+    #return [(i%2==1)*seq1.bit1[((i+1)÷2)+(i%2==0)-(i==64)]+seq1.bit2[(i÷2)+(i%2==1)]*(i%2==0) for i in 1:128]<[(i%2==1)*seq2.bit1[((i+1)÷2)+(i%2==0)-(i==128)] + seq2.bit2[(i÷ 2)+(i%2==1)]*(i%2==0) for i in 1:128]
 end
 
 function Base.isless(seq1 :: Vector{T}, seq2 :: Vector{T}) where T<: DNASeq
@@ -70,12 +71,12 @@ function Base.isless(seq1 :: Vector{T}, seq2 :: Vector{T}) where T<: DNASeq
         return length(seq1)<length(seq2)
     end
     for j in 1:length(seq1)
-        temp1 = [(i%2==1)*seq1[j].bit1[((i+1)÷2)+(i%2==0)-(i==128)]+seq1[j].bit2[(i÷2)+(i%2==1)]*(i%2==0) for i in 1:128]
-        temp2 = [(i%2==1)*seq2[j].bit1[((i+1)÷2)+(i%2==0)-(i==128)] + seq2[j].bit2[(i÷ 2)+(i%2==1)]*(i%2==0) for i in 1:128]
+        temp1 = seq1[j]#[(i%2==1)*seq1[j].bit1[((i+1)÷2)+(i%2==0)-(i==128)]+seq1[j].bit2[(i÷2)+(i%2==1)]*(i%2==0) for i in 1:128]
+        temp2 = seq2[j]#[(i%2==1)*seq2[j].bit1[((i+1)÷2)+(i%2==0)-(i==128)] + seq2[j].bit2[(i÷ 2)+(i%2==1)]*(i%2==0) for i in 1:128]
         if temp1== temp2
             continue
         else 
-            return temp1<temp2
+            return isless(temp1,temp2)
         end
     end
     return false
@@ -186,6 +187,9 @@ function read_kmer(seq:: Vector, len::Int64, k :: Int64)
     kmer_list = DefaultDict{DNASeq, Int64}(0)
     max_ind = length(seq)
     len_max_ind = len%64
+    if len_max_ind == 0
+        len_max_ind = 64
+    end
     if (len>=k)
         for i in k:len
 
@@ -208,6 +212,8 @@ function read_kmer(seq:: Vector, len::Int64, k :: Int64)
                 
                 
                 if ind1==max_ind
+                    #kmer = kmer_seq(seq[ind1].bit1[64-len_max_ind+offset-k+1:i], seq[ind1].bit2[64-len_max_ind+offset-k+1:64-len_max_ind+offset],k)
+                
                     kmer = kmer_seq(seq[ind1].bit1[64-len_max_ind+offset-k+1:64-len_max_ind+offset], seq[ind1].bit2[64-len_max_ind+offset-k+1:64-len_max_ind+offset],k)
                 else
                     kmer = kmer_seq(seq[ind1].bit1[offset-k+1:offset], seq[ind1].bit2[offset-k+1:offset],k)
@@ -231,7 +237,7 @@ function read_kmer(seq:: Vector, len::Int64, k :: Int64)
                 else 
                     ind2 += 1
                 end
-
+                
                 chunk11 = seq[ind1].bit1[offset_1:end]
                 chunk12 = seq[ind1].bit2[offset_1:end]
                 chunk21 = seq[ind2].bit1[1:offset_2]
