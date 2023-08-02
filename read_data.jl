@@ -19,7 +19,7 @@ function read_and_walk(k :: Int64, number_of_compactions :: Int64, name :: Strin
     coverage = 5
     contig_list = []
     G = graph_creator(kmer_list,['A','C','G','T'], coverage)
-    G_new,ls = compact_graph(G,k,Number)
+    G_new,ls = compact_graph(G,k,number_of_compactions)
     run_walk(G,ls)
 end
 
