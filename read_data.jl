@@ -1,12 +1,5 @@
 using FastaIO
 
-FastaReader("ecoli_illumina_10x_part_.fasta") do fr
-    for (desc, seq) in fr
-        DNAS
-        break
-    end
-end
-
 file = "ecoli_illumina_10x_part_.fasta"
 
 function read_and_walk(k :: Int64, number_of_compactions :: Int64, name :: String)
