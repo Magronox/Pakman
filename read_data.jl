@@ -1,4 +1,6 @@
 using FastaIO
+include("graph_walk.jl")
+
 
 file = "ecoli_illumina_10x_part_.fasta"
 
