@@ -89,7 +89,7 @@ function graph_creator(kmer_list :: DefaultDict, Alphabet :: Vector{Char}, C :: 
         
         for x_prime in x_prime_list
             
-            if !([x_prime[1]] in keys(G))
+            if !([x_prime] in keys(G))
                 x_prime_key,~ = x_prime
                 u = macro_node()
                 u.label = [x_prime_key]
