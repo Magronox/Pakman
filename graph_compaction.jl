@@ -251,8 +251,9 @@ function kmerge(kmer_1::DNASeq, kmer_2::DNASeq, k::Int64, l :: Int64 )
         bit12 = kmer_1.bit2
         bit21 = kmer_2.bit1
         bit22 = kmer_2.bit2
-        seq1 = kmer_seq(vcat(bit11[end-l+1:end],bit21),vcat(bit12[end-l+1:end],bit22),64)
-        seq2 = kmer_seq(bit11[1:64-l],bit12[1:64-l],64-l)
+        rem = l+k-64
+        seq1 = kmer_seq(vcat(bit11[l+1:end],bit21[end-l+1:end]),vcat(bit12[l+1:end],bit22[end-l+1]),64)
+        seq2 = kmer_seq(bit11[1:64-rem],bit12[1:64-rem],rem)
         return [seq2, seq1]
     end
 end
@@ -337,7 +338,7 @@ function kmerge(kmer_1::Vector{DNASeq}, kmer_2::Vector{DNASeq}, k::Int64, l :: I
         elseif l==0
             print("error\n")
         else
-            return vcat(kmer_1,kmer_2)
+            return kmer_2
         end
         
     end
@@ -347,7 +348,7 @@ function kmerge(kmer_1::Vector{DNASeq}, kmer_2::Vector{DNASeq}, k::Int64, l :: I
     res = kmer_2[2:end]
     r = (l1_m+k1_m)>64
 
-    if (l+k1_m)<64
+    if (k+l1_m)<64
 
         bit11 = kmer_1[end].bit1[end-k1_m+1:end]
         bit12 = kmer_1[end].bit2[end-k1_m+1:end]
@@ -356,6 +357,7 @@ function kmerge(kmer_1::Vector{DNASeq}, kmer_2::Vector{DNASeq}, k::Int64, l :: I
         
         
         pushfirst!(res,kmer_seq(vcat(bit11,bit21),vcat(bit12,bit22),l+k1_m))
+        return res
     
     else
 
@@ -652,7 +654,7 @@ end
 
 
 
-"function initiate_wiring!(u:: macro_node)
+function initiate_wiring!(u:: macro_node)
     u.prefixes[length(u.prefixes)+1] = VTerminal
     u.suffixes[length(u.suffixes)+1] = VTerminal
     u.prefixes_terminal[length(u.prefixes)] = true
@@ -660,4 +662,3 @@ end
     u.prefix_counts[length(u.prefixes)] = (-1,-1)
     u.suffix_counts[length(u.suffixes)] = (-1,-1)
 end
-"
