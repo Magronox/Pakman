@@ -62,14 +62,12 @@ Base.:(==)(seq1 ::Union{Vector{DNASeq},DNASeq}, seq2 :: Union{Vector{DNASeq},DNA
 
 
 function Base.isless(seq1 :: T, seq2 :: T) where T<: DNASeq
-    return seq1.bit1 < seq2.bit1 ? true : seq1.bit2 < seq2.bit2 
+    return seq1.bit1 == seq2.bit1 ? seq1.bit2<seq2.bit2 : seq1.bit1 < seq2.bit1
     #return [(i%2==1)*seq1.bit1[((i+1)÷2)+(i%2==0)-(i==64)]+seq1.bit2[(i÷2)+(i%2==1)]*(i%2==0) for i in 1:128]<[(i%2==1)*seq2.bit1[((i+1)÷2)+(i%2==0)-(i==128)] + seq2.bit2[(i÷ 2)+(i%2==1)]*(i%2==0) for i in 1:128]
 end
 
 function Base.isless(seq1 :: Vector{T}, seq2 :: Vector{T}) where T<: DNASeq
-    if length(seq1)!=length(seq2)
-        return length(seq1)<length(seq2)
-    end
+
     for j in 1:length(seq1)
         temp1 = seq1[j]#[(i%2==1)*seq1[j].bit1[((i+1)÷2)+(i%2==0)-(i==128)]+seq1[j].bit2[(i÷2)+(i%2==1)]*(i%2==0) for i in 1:128]
         temp2 = seq2[j]#[(i%2==1)*seq2[j].bit1[((i+1)÷2)+(i%2==0)-(i==128)] + seq2[j].bit2[(i÷ 2)+(i%2==1)]*(i%2==0) for i in 1:128]
@@ -128,8 +126,9 @@ end
 
 
 function string_to_DNASeq(seq :: String)
+   
     n = ceil(Int64, length(seq)/64)
-    bitseq = []
+    bitseq = Vector{DNASeq}()
     for i in 1:n-1
         temp_1 = zeros(Int64,64)
         temp_2 = zeros(Int64,64)

@@ -2,9 +2,6 @@ include("kmer_counting_v2.jl")
 
 
 
-
-
-
 Base.@kwdef mutable struct macro_node
     #length k-1
     #id = 0
@@ -97,12 +94,10 @@ function graph_creator(kmer_list :: DefaultDict, Alphabet :: Vector{Char}, C :: 
                 pid = 1
                 sid = 1
 
-
                 for c in Alphabet
                     
                     temp = kmerge(c,x_prime_key, false)
                     node = [DNASeq(vcat(zeros(Int64,64-k+1),temp.bit1[end-k+1:end-1]),vcat(zeros(Int64,64-k+1),temp.bit2[end-k+1:end-1]),k-1)]
-
                     if  temp in keys(kmer_list) #&& node!= [x_prime_key]
                         u.prefixes[pid] = string_to_DNASeq(string(c))
                         u.prefixes_terminal[pid] = false
@@ -110,8 +105,9 @@ function graph_creator(kmer_list :: DefaultDict, Alphabet :: Vector{Char}, C :: 
                         u.prefix_counts[pid] = (kmer_list[temp],vc)
                         u.prefix_terminal = false
                         pid += 1
+                        #print(x_prime_key,"\n")
+                        #print("st", string_to_DNASeq)
                         
-
                     end
 
                     temp = kmerge(c,x_prime_key, true)
@@ -133,8 +129,6 @@ function graph_creator(kmer_list :: DefaultDict, Alphabet :: Vector{Char}, C :: 
                 setup_wiring!(u)
                 G[u.label] = u
             end
-            
-            
             
             u = macro_node()
         end
