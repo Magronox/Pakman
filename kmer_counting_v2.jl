@@ -128,22 +128,28 @@ end
 function string_to_DNASeq(seq :: String)
    
     n = ceil(Int64, length(seq)/64)
+    m = length(seq)%64
+    if m == 0
+        m = 64
+    end
+    
     bitseq = Vector{DNASeq}()
     for i in 1:n-1
         temp_1 = zeros(Int64,64)
         temp_2 = zeros(Int64,64)
-        temp = string_to_int(seq[64*(i-1)+1:64*i])
+        temp = string_to_int(seq[64*(i-1)+m+1:64*i+m])
         temp_1[65-length(temp[:,1]):64] = temp[:,1]
         temp_2[65-length(temp[:,2]):64] = temp[:,2]
         #print(temp_1)
         push!(bitseq,DNASeq(BitArray(vec(temp_1)),BitArray(vec(temp_2)),64))
     end
+    #print(",",m,"\n")
     temp_1 = zeros(Int64,64)
     temp_2 = zeros(Int64,64)
-    temp = string_to_int(seq[64*(n-1)+1:end])
+    temp = string_to_int(seq[1:m])
     temp_1[65-length(temp[:,1]):64] = temp[:,1]
     temp_2[65-length(temp[:,2]):64] = temp[:,2]
-    push!(bitseq,DNASeq(BitArray(vec(temp_1)),BitArray(vec(temp_2)),length(seq)-(n-1)*64))
+    pushfirst!(bitseq,DNASeq(BitArray(vec(temp_1)),BitArray(vec(temp_2)),m))
     bitseq
 
 end
