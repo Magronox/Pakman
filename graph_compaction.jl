@@ -2,6 +2,9 @@
 include("graph_construction.jl")
 include("kmer_counting_v2.jl")
 
+##coverage
+C = 1
+##========
 
 function compact_graph!( G :: DefaultDict{Vector{DNASeq},macro_node}, compaction_times :: Int64)
     num_mn = length(G)
@@ -35,6 +38,7 @@ function compact_graph!( G :: DefaultDict{Vector{DNASeq},macro_node}, compaction
             end
         end
         
+        
         for i in i_s
             delete!(G,i)
         end
@@ -45,17 +49,14 @@ function compact_graph!( G :: DefaultDict{Vector{DNASeq},macro_node}, compaction
         
         for i in rewire_list
             if (i in keys(G))
-
-                initiate_wiring!(G[i])
-                setup_wiring!(G[i])
+                empty!(G[i].wire_info)
+                empty!(G[i].prefix_begin_info)
+                #initiate_wiring!(G[i])
+                setup_wiring!(G[i],C)
             end
         end
         print("loop\nsize :",num_mn,"\n", "rewire list size : ",length(rewire_list),"\n") 
-        
-        
     end
-
-    
     return G, pcontig_list
 end
 
@@ -101,7 +102,7 @@ end
         #    print("error\n")
         #    return Nothing
         #end
-        return [kmerge(kmer, lmer[1], rem, l)]
+        return kmerge(kmer, lmer[1], rem, l)
     end
 end
 
@@ -119,6 +120,7 @@ end
     ll = lmer[1].len
     if ll==0
         print("possible issue\n")
+        return kmer
     end
     
     if l>= (k-1)
@@ -204,18 +206,28 @@ function find_succ_ext(G::DefaultDict, kmer1 :: Vector{DNASeq}, kmer2 :: Vector{
     end
     
     for (pid ,prefix) in G[kmer2_].prefixes
+    
         if prefix[1] == Terminal
             continue
-        elseif length(prefix)==1 && prefix[1].len<(k-1)
-            if prefix[1].bit1[end-prefix[1].len+1:end] == kmer1[1].bit1[end-kmer1[1].len+1:end - kmer1[1].len + prefix[1].len] && prefix[1].bit2[end-prefix[1].len+1:end] == kmer1[1].bit2[end-kmer1[1].len+1:end - kmer1[1].len + prefix[1].len]
+        elseif length(prefix)==1
+             
+            if prefix[1].len<(k-1) 
+                if prefix[1].bit1[end-prefix[1].len+1:end] == kmer1[1].bit1[end-kmer1[1].len+1:end - kmer1[1].len + prefix[1].len] && prefix[1].bit2[end-prefix[1].len+1:end] == kmer1[1].bit2[end-kmer1[1].len+1:end - kmer1[1].len + prefix[1].len]
+                    return pid, prefix
+                end
+            elseif prefix[1].bit1[end-prefix[1].len+1:end-prefix[1].len+k-1]==kmer1[1].bit1[end-(k-1)+1:end] && prefix[1].bit2[end-prefix[1].len + 1:end-prefix[1].len+k-1] == kmer1[1].bit2[end - (k-1)+1:end]
                 return pid, prefix
             end
-
-        elseif prefix[1].bit1[end-prefix[1].len+1:end-prefix[1].len+k-1]==kmer1[1].bit1[end-(k-1)+1:end] && prefix[1].bit2[end-prefix[1].len + 1:end-prefix[1].len+k-1] == kmer1[1].bit2[end - (k-1)+1:end]
-            return pid,prefix
+        elseif prefix[1].len > (k-1)
+            if prefix[1].bit1[end-prefix[1].len+1:end-prefix[1].len+k-1]==kmer1[1].bit1[end-(k-1)+1:end] && prefix[1].bit2[end-prefix[1].len + 1:end-prefix[1].len+k-1] == kmer1[1].bit2[end - (k-1)+1:end]
+                return pid,prefix
+            end
+        elseif prefix[1].bit1[end-prefix[1].len+1:end]==kmer1[1].bit1[end-(k-1)+1:end-(k-1)+prefix[1].len] && prefix[1].bit2[end-prefix[1].len + 1:end] == kmer1[1].bit2[end - (k-1)+ 1:end-(k-1)+prefix[1].len] 
+            if prefix[2].bit1[1:k-1-prefix[1].len] == kmer1[1].bit1[end-(k-1)+prefix[1].len+1:end]  && prefix[2].bit2[1:k-1-prefix[1].len] == kmer1[1].bit2[end-(k-1)+prefix[1].len+1:end]
+                return pid,prefix
+            end
         end
     end
-    
     return Nothing
 end
 
@@ -272,9 +284,9 @@ function kmerge(kmer_1::DNASeq, kmer_2::DNASeq, k::Int64, l :: Int64 )
         if kmer_2 == Terminal
             print("error")
         end
-        return [kmer_1, Terminal]
+        return [kmer_2]#, Terminal]
     elseif kmer_2 == Terminal
-        return [kmer_1,Terminal]
+        return [kmer_1]#,Terminal]
             
     end
     if l+k <=64
@@ -282,15 +294,16 @@ function kmerge(kmer_1::DNASeq, kmer_2::DNASeq, k::Int64, l :: Int64 )
         bit12 = kmer_1.bit2
         bit21 = kmer_2.bit1
         bit22 = kmer_2.bit2
-        return kmer_seq(vcat(bit11[end-k+1:end],bit21[end-l+1:end]), vcat(bit12[end-k+1:end],bit22[end-l+1:end]),k+l)
+        return [kmer_seq(vcat(bit11[end-k+1:end],bit21[end-l+1:end]), vcat(bit12[end-k+1:end],bit22[end-l+1:end]),k+l)]
     else
         bit11 = kmer_1.bit1
         bit12 = kmer_1.bit2
         bit21 = kmer_2.bit1
         bit22 = kmer_2.bit2
         rem = l+k-64
-        seq1 = kmer_seq(vcat(bit11[l+1:end],bit21[end-l+1:end]),vcat(bit12[l+1:end],bit22[end-l+1]),64)
-        seq2 = kmer_seq(bit11[1:64-rem],bit12[1:64-rem],rem)
+        #print(l,k,"\n",bit12[l+1:end],"\n",bit22[end-l+1])
+        seq1 = kmer_seq(vcat(bit11[l+1:end],bit21[end-l+1:end]),vcat(bit12[l+1:end],bit22[end-l+1:end]),64)
+        seq2 = kmer_seq(bit11[64-k+1:l],bit12[64-k+1:l],rem)
         return [seq2, seq1]
     end
 end
@@ -308,6 +321,7 @@ function kmerge(kmer_1::Union{Vector{DNASeq},DNASeq}, kmer_2::Union{Vector{DNASe
         
         l = (length(kmer_2)-1)*64 + kmer_2[1].len
         if kmer_2[end] == Terminal && length(kmer_2)>1
+            print("A Terminal Issue\n")
             l -= 64
         end
     else
@@ -325,133 +339,96 @@ function kmerge(kmer_1::Vector{DNASeq}, kmer_2::DNASeq, k::Int64, l :: Int64 )
     bit12 = kmer_1[end].bit2[range]
     bit21 = kmer_2.bit1[64-l+1:end]
     bit22 = kmer_2.bit2[64-l+1:end]
-   
+
     if k == k1
         pushfirst!(res, kmer_seq(vcat(bit11,bit21), vcat(bit12,bit22),length(range)+l))
     else
         pushfirst!(res, kmer_seq(vcat(bit11,bit21), vcat(bit12,bit22),64))
     end
 
-   for i in length(kmer_1):-1:2
-
+   for i in length(kmer_1):-1:3
         bit11 = kmer_1[i-1].bit1[l+1:end]
         bit12 = kmer_1[i-1].bit2[l+1:end]
         bit21 = kmer_1[i].bit1[1:l]
         bit22 = kmer_1[i].bit2[1:l]
         pushfirst!(res, kmer_seq(vcat(bit11,bit21), vcat(bit12,bit22),64))
     end
+
+    
     if l+k1 > 64
-        bit1 = kmer_1[1].bit1[1:l]
-        bit2 = kmer_1[1].bit2[1:l]
-        pushfirst!(res,kmer_seq(bit1,bit2,l))
+        bit11 = kmer_1[1].bit1[l+1:end]
+        bit12 = kmer_1[1].bit2[l+1:end]
+        bit21 = kmer_1[2].bit1[1:l]
+        bit22 = kmer_1[2].bit2[1:l]
+        pushfirst!(res, kmer_seq(vcat(bit11,bit21), vcat(bit12,bit22),64))
+
+        bit11 = kmer_1[1].bit1[end-k1+1:l]
+        bit12 = kmer_1[1].bit2[end-k1+1:l]
+        pushfirst!(res,kmer_seq(bit11,bit12,l+k1-64))
+    else
+        bit11 = kmer_1[1].bit1[end-k1+1:end]
+        bit12 = kmer_1[1].bit2[end-k1+1:end]
+        bit21 = kmer_1[2].bit1[1:l]
+        bit22 = kmer_1[2].bit2[1:l]
+        pushfirst!(res,kmer_seq(vcat(bit11,bit21),vcat(bit12,bit22),l+k1))
     end
     res = Vector{DNASeq}(res)
     return res
 end
 
 function kmerge(kmer_1::DNASeq, kmer_2:: Vector{DNASeq}, k::Int64, l :: Int64 )
-    l1 = l%64
-    res = l1[2:end]
-    if l1+k<=64
-        bit11 = kmer_1.bit1[end-k+1:end] 
-        bit12 = kmer_1.bit2[end-k+1:end]
-        bit21 = kmer_2[1].bit1[end-l1+1:end]
-        bit22 = kmer_2[1].bit2[end-l1+1:end]
-        pushfirst!(res, kmer_seq(vcat(bit11,bit21),vcat(bit12,bit22),l1+k))
-    end
-    res
+    return vcat(kmerge(kmer_1,kmer_2[1],kmer_1.len+kmer_2[1].len),kmer_2[2:end])
 end
 
 
-function kmerge(kmer_1::Vector{DNASeq}, kmer_2::Vector{DNASeq}, k::Int64, l :: Int64 )
-    kmer2_ = copy(kmer_2)
-    counter_end = 0
-    if l!= 0
-        while(kmer2_[end]== Terminal)
-            
-            deleteat!(kmer2_,length(kmer2_))
-            counter_end += 1
-        end
-    end
-    counter_start = 0
-    if l!=0
-        while(kmer2_[1]==Terminal)
-            deleteat!(kmer2_,1)
-            counter_start += 1
-        end
-    end
-    #l1 = l÷ 64
+
+function kmerge(kmer_1 :: Vector{DNASeq}, kmer_2 :: Vector{DNASeq}, k :: Int64, l :: Int64)
     l1_m = l%64
-    if l1_m==0
-        l1_m=64
-        if l == 0
-            return vcat(kmer_1,kmer_2)
-        end
-        
-    end
-
-    #k1 = k÷64
     k1_m = k%64
-    if k1_m == 0 
-        if k>0
-            k1_m = 64
-        elseif l==0
-            print("error\n")
-        else
+    l1_m = (l1_m == 0) ? 64 : l1_m
+    k1_m = (k1_m == 0) ? 64 : k1_m
+    res = Vector{DNASeq}()
+    #print(l1_m, " ",k1_m ," ",k," ",l,"\n")
+    if length(kmer_1) == 1 
+        if length(kmer_2) == 1
+            return kmerge(kmer_1[1],kmer_2[1],k,l)
+        elseif k == 0
             return kmer_2
+        elseif l1_m+k1_m <= 64
+            return vcat([kmer_seq(vcat(kmer_1[1].bit1[end-k+1:end],kmer_2[1].bit1[end-l1_m+1:end]), vcat(kmer_1[1].bit2[end-k+1:end],kmer_2[1].bit2[end-l1_m+1 : end]),l1_m+k1_m)],kmer_2[2:end])
+        else
+            tempi = vcat([kmer_seq(vcat(kmer_1[1].bit1[l1_m+1:end],kmer_2[1].bit1[end-l1_m+1:end]), vcat(kmer_1[1].bit2[l1_m+1:end],kmer_2[1].bit2[end-l1_m+1 : end]),64)],kmer_2[2:end])
+            tempo = l1_m+k1_m-64
+            return vcat(kmer_seq(kmer_1[1].bit1[end-k+1:end-k+tempo],kmer_1[1].bit2[end-k+1:end-k+tempo],tempo),tempi)
         end
-        
-    end
-
-
-
-    res = kmer_2[2:end]
-    r = (l1_m+k1_m)>64
-
-    if (k+l1_m)<64
-
-        bit11 = kmer_1[end].bit1[end-k1_m+1:end]
-        bit12 = kmer_1[end].bit2[end-k1_m+1:end]
-        bit21 = kmer_2[1].bit1[end-l1_m+1:end]
-        bit22 = kmer_2[1].bit2[end-l1_m+1:end]
-        
-        pushfirst!(res,kmer_seq(vcat(bit11,bit21),vcat(bit12,bit22),l+k1_m))
-        return res
-    
+    elseif length(kmer_2)==1
+        return kmerge(kmer_1,kmer_2[1])
     else
+        res = kmer_2[2:end]
+        pushfirst!(res,kmer_seq(vcat(kmer_1[end].bit1[l1_m+1 : end],kmer_2[1].bit1[end-l1_m+1:end]),vcat(kmer_1[end].bit2[l1_m+1 : end],kmer_2[1].bit2[end-l1_m+1:end]),64))
+        
+        for i in 1:(length(kmer_1)-2)
+            pushfirst!(res,kmer_seq(vcat(kmer_1[end-i].bit1[l1_m+1:end],kmer_1[end-i+1].bit1[1:l1_m]),vcat(kmer_1[end-i].bit2[l1_m+1:end],kmer_1[end-i+1].bit2[1:l1_m]),64))
+            
+        end
 
-    bit11 = kmer_1[end].bit1[l1_m+1:end]
-    bit12 = kmer_1[end].bit2[l1_m+1:end]
-    bit21 = kmer_2[1].bit1[end-l1_m+1:end]
-    bit22 = kmer_2[1].bit2[end-l1_m+1:end]
-    
-    pushfirst!(res,kmer_seq(vcat(bit11,bit21),vcat(bit12,bit22),64))
-    
+        if k1_m+l1_m <=64
+            pushfirst!(res,kmer_seq(vcat(kmer_1[1].bit1[end-k1_m+1:end],kmer_1[2].bit1[1:l1_m]),vcat(kmer_1[1].bit2[end-k1_m+1:end],kmer_1[2].bit2[1:l1_m]),k1_m+l1_m))
+            
+        else
+            pushfirst!(res,kmer_seq(vcat(kmer_1[1].bit1[l1_m+1:end],kmer_1[2].bit1[1:l1_m]),vcat(kmer_1[1].bit2[l1_m+1:end],kmer_1[2].bit2[1:l1_m]),64))
+            
+            pushfirst!(res, kmer_seq(kmer_1[1].bit1[end-k1_m+1:l1_m],kmer_1[1].bit2[end-k1_m+1:l1_m],l1_m+k1_m-64))
+        end
     end
 
-    
-    lk1 = length(kmer_1)
-    
-    for i in 1:lk1-1
-        ind2 = lk1 + 1 - i
-        ind1 = lk1  - i 
-        bit11 = kmer_1[ind1].bit1[l1_m+1:end]
-        bit12 = kmer_1[ind1].bit2[l1_m+1:end]
-        bit21 = kmer_1[ind2].bit1[1:l1_m]
-        bit22 = kmer_1[ind2].bit2[1:l1_m]
-        pushfirst!(res,kmer_seq(vcat(bit11,bit21),vcat(bit12,bit22),64))
-    end
-    if r
-        ind1 = 1
-        bit1 = kmer_1[ind1].bit1[end - k1_m + 1: l1_m]
-        bit2 = kmer_1[ind1].bit2[end - k1_m + 1: l1_m]
-        pushfirst!(res,kmer_seq(bit1,bit2, l1_m + k1_m - 64))
-    end
-
+    @assert(k != 0)
     return res
 
-end
 
+
+
+end
 
 function IS(G::DefaultDict)#, Alphabet:: Vector{Char}, k :: Int64)
     IS_ = Set()
@@ -615,6 +592,7 @@ function iterate_pack(G :: DefaultDict, IS_ :: Set)
                                     end
                                 end
                                 if pred_ext!=VTerminal && pred_ext_in
+                                    #print(pred_ext,"\n",G[node].suffixes[itr_s],"\n")
                                     new_ext = kmerge(pred_ext,G[node].suffixes[itr_s])
                                     if length(new_ext)>1 && new_ext[end-1] == Terminal
                                         new_ext = new_ext[1:end-1]
@@ -642,7 +620,9 @@ function iterate_pack(G :: DefaultDict, IS_ :: Set)
                                 if succ_ext == VTerminal
                                     continue
                                 end
+                                
                                 new_ext = kmerge(G[node].prefixes[itr_p],succ_ext)
+                    
                                 if length(new_ext)>1 && new_ext[2] == Terminal
                                     new_ext = new_ext[2:end]
                                 
@@ -672,64 +652,55 @@ function serialize_transfer!(G :: DefaultDict, transfer_nodeInfo :: DefaultDict{
     for node in keys(transfer_nodeInfo)
         for i in transfer_nodeInfo[node]
             (n_node,ext,new_ext,visit_count,ccount,direction,id,pid,type,ext_in) = i
+            
             push!(rewirelist,n_node)
             
             if ! (n_node in keys(G))
                 print("MN node key was not found ")
                 print(n_node,"\n")
             elseif direction == 1 
-                if ext_in#!(new_ext in keys(G[n_node].suffixes)) && (ext in keys(G[n_node].suffixes))
+                if !ext_in#!(new_ext in keys(G[n_node].suffixes)) && (ext in keys(G[n_node].suffixes))
                 ##adds to suffix of next MN
-
                     l = length(G[n_node].suffixes) + 1
-                    G[n_node].suffixes[l] = new_ext 
+                    G[n_node].suffixes[l] = copy(new_ext) 
                     G[n_node].suffix_counts[l] = (visit_count,ccount)
                     G[n_node].suffixes_terminal[l] = type
-
                 else
                     if G[n_node].suffixes_terminal[id]
                         l = length(G[n_node].suffixes) + 1
-                        G[n_node].suffixes[l] = new_ext 
+                        G[n_node].suffixes[l] = copy(new_ext) 
                         G[n_node].suffix_counts[l] = (visit_count,ccount)
                         G[n_node].suffixes_terminal[l] = type
-                
                     else
-                        G[n_node].suffixes[id] = new_ext
+                        G[n_node].suffixes[id] = copy(new_ext)
                         G[n_node].suffix_counts[id] = (visit_count,ccount)
                         G[n_node].suffixes_terminal[id] = type
                     end
-
-
                 end
             else
-                if ext_in #!(new_ext in keys(G[n_node].prefixes)) && (ext in keys(G[n_node].suffixes))
+                if !ext_in #!(new_ext in keys(G[n_node].prefixes)) && (ext in keys(G[n_node].suffixes))
                     ##adds to suffix of next MN
     
                         l = length(G[n_node].prefixes) + 1
-                        G[n_node].prefixes[l] = new_ext 
+                        G[n_node].prefixes[l] = copy(new_ext)
                         G[n_node].prefix_counts[l] = (visit_count,ccount)
                         G[n_node].prefixes_terminal[l] = type
     
                     else
                         if G[n_node].prefixes_terminal[id]
-                            l = length(G[n_node].suffixes) + 1
-                            G[n_node].prefixes[l] = new_ext 
+                            l = length(G[n_node].prefixes) + 1
+                            G[n_node].prefixes[l] = copy(new_ext) 
                             G[n_node].prefix_counts[l] = (visit_count,ccount)
                             G[node].prefixes_terminal[l] = type
                     
                         else
-                            G[n_node].prefixes[id] = new_ext
+                            G[n_node].prefixes[id] = copy(new_ext)
                             G[n_node].prefix_counts[id] = (visit_count,ccount)
                             G[n_node].prefixes_terminal[id] = type
                         end
                         
     
                     end
-
-
-   
-                
-            
             end
         end
 
