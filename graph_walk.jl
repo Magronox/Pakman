@@ -23,7 +23,9 @@ function run_walk(G :: DefaultDict, pcontig_list:: Vector)
             
             walk!(G, contig, freq, 0, mn, pid, output)
         end
-
+    end
+    for contig in pcontig_list
+        walk!(G, contig, freq, 0, mn, pid, output)
     end
     return output
 end
@@ -49,6 +51,7 @@ function walk!(G:: DefaultDict, pcontig:: Vector{DNASeq}, freq, offset_in_prefix
         if internal_off + sz <= offset_in_prefix || internal_off > offset_in_prefix + freq_rem
             continue
         end
+
         off_in_wire = offset_in_prefix <= internal_off ? 0 : offset_in_prefix - internal_off 
         next_off = offset_in_suffix + id
         freq_in_wire = min(freq_rem, sz - off_in_wire )
@@ -71,7 +74,7 @@ function walk!(G:: DefaultDict, pcontig:: Vector{DNASeq}, freq, offset_in_prefix
             #ppid, succ_ext = find_succ_ext(G,key[1], succ_node[1])
             if !(succ_node in keys(G))
             #    print("Error key not found\n")
-            continue
+                continue
             end
             next_mn = G[succ_neigh(mn.label[1],mn.suffixes[id])]
             next_prefix_id, ~ = find_succ_ext(G, mn.label, next_mn.label)
@@ -84,8 +87,6 @@ function walk!(G:: DefaultDict, pcontig:: Vector{DNASeq}, freq, offset_in_prefix
         end
        
         freq_rem -= freq_in_wire
- 
-
 
     end
 end
@@ -123,11 +124,11 @@ end
 This is because of the recursive nature of the walk algorithm."""
 
 """
-slen = 5000
+slen = 10
 input = randstring("ACGT",slen)
 
 DNA_seq = string_to_DNASeq(input)
-k=10
+k=3
 kmer_list = read_kmer(DNA_seq, length(input),k)
 
 G = graph_creator(kmer_list,['A','C','G','T'], 5)
