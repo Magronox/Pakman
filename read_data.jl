@@ -1,7 +1,7 @@
 using FastaIO
 include("graph_walk.jl")
 
-file = "ecoli_illumina_10x_part_.fasta"
+file = "random_output_500_100_10.fasta"
 
 function read_and_walk(k :: Int64, number_of_compactions :: Int64, name :: String)
     kmer_list =  DefaultDict{DNASeq, Int64}(0)
@@ -14,12 +14,56 @@ function read_and_walk(k :: Int64, number_of_compactions :: Int64, name :: Strin
         for (t,v) in temp_kmers
             kmer_list[t] += v
         end
-        break
+        #break
     end
     #end
         
     
-    coverage = 5
+    coverage = 10
+    global contig_list = []
+    G = graph_creator(kmer_list,['A','C','G','T'], coverage)
+
+    print("Starting size ",length(G),"\n")
+    G,ls = compact_graph!(G,number_of_compactions)
+    #print("length()",length(ls))
+    run_walk(G,ls)
+    #append!(contig_list,ls)
+    
+    for i in ls
+        if !(i in contig_list)
+            append!(contig_list,i)
+        end
+    end
+    deleteat!(contig_list, findall(x->x==Any[],contig_list))
+
+
+    #print("\n new contig list\n",contig_list)
+    unique(contig_list), G
+end
+
+
+function rw(k :: Int64, number_of_compactions :: Int64, name :: String)
+
+    kmer_list =  DefaultDict{DNASeq, Int64}(0)
+    
+    #FastaReader(name) do fr
+    #    
+    for (~,seq) in FastaReader(name)
+        input = string_to_DNASeq(seq)
+        temp_kmers = read_kmer(input, input[1].len + (length(input)-1)*64,k)
+        for (t,v) in temp_kmers
+            kmer_list[t] += v
+        end
+        
+        #break
+    end
+    #end
+    for (t,v) in kmer_list
+        if v<2
+            delete!(kmer_list,t)
+        end
+    end   
+    coverage = 10
     global contig_list = []
     G = graph_creator(kmer_list,['A','C','G','T'], coverage)
 
@@ -29,8 +73,6 @@ function read_and_walk(k :: Int64, number_of_compactions :: Int64, name :: Strin
     #print("\n new contig list\n",contig_list)
     contig_list, G
 end
-
-
 
 function read_and_walk_string(k :: Int64, number_of_compactions :: Int64, seq :: String)
     kmer_list =  DefaultDict{DNASeq, Int64}(0)
@@ -53,9 +95,20 @@ function read_and_walk_string(k :: Int64, number_of_compactions :: Int64, seq ::
 
     print("Starting size ",length(G),"\n")
     G,ls = compact_graph!(G,number_of_compactions)
+    #print("length()",length(ls))
     run_walk(G,ls)
+    #append!(contig_list,ls)
+    
+    for i in ls
+        if !(i in contig_list)
+            append!(contig_list,i)
+        end
+    end
+    deleteat!(contig_list, findall(x->x==Any[],contig_list))
+
+
     #print("\n new contig list\n",contig_list)
-    contig_list, G
+    unique(contig_list), G
 end
 
 
