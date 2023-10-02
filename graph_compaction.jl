@@ -3,13 +3,14 @@ include("graph_construction.jl")
 include("kmer_counting_v2.jl")
 
 ##coverage
-C = 1
+C = 10
 ##========
 
 function compact_graph!( G :: DefaultDict{Vector{DNASeq},macro_node}, compaction_times :: Int64)
     num_mn = length(G)
     contigs = []
     pcontig_list= []
+    temp = []
     #transfer_nodeInfo = []
 
     for t in 1:compaction_times
@@ -25,7 +26,8 @@ function compact_graph!( G :: DefaultDict{Vector{DNASeq},macro_node}, compaction
             break
         end
 
-        pcontig_list, transfer_nodeInfo = iterate_pack(G,i_s)
+        temp, transfer_nodeInfo = iterate_pack(G,i_s)
+        push!(pcontig_list,temp)
         
         
         rewire_list = serialize_transfer!(G,transfer_nodeInfo)
@@ -45,7 +47,7 @@ function compact_graph!( G :: DefaultDict{Vector{DNASeq},macro_node}, compaction
 
     
         num_mn = length(G)
-        push!(contigs,pcontig_list)
+        append!(contigs,pcontig_list)
         
         for i in rewire_list
             if (i in keys(G))
@@ -425,9 +427,6 @@ function kmerge(kmer_1 :: Vector{DNASeq}, kmer_2 :: Vector{DNASeq}, k :: Int64, 
     @assert(k != 0)
     return res
 
-
-
-
 end
 
 function IS(G::DefaultDict)#, Alphabet:: Vector{Char}, k :: Int64)
@@ -459,8 +458,6 @@ function IS(G::DefaultDict)#, Alphabet:: Vector{Char}, k :: Int64)
             for (sid, s_kmer) in G[node].suffixes
             
                 if !G[node].suffixes_terminal[sid] #s_kmer[end].len != 0 && 
-
-                    
                     succ_node = succ_neigh(node[1], s_kmer)
                     if !(succ_node in keys(G))
                         continue
