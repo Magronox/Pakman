@@ -24,9 +24,10 @@ function run_walk(G :: DefaultDict, pcontig_list:: Vector)
             walk!(G, contig, freq, 0, mn, pid, output)
         end
     end
-    for contig in pcontig_list
+    "for contig in pcontig_list
         walk!(G, contig, freq, 0, mn, pid, output)
-    end
+    end"
+    push!(output,pcontig_list)
     return output
 end
 contig_list = []
