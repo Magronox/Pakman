@@ -49,7 +49,7 @@ function Base.isequal(seq1::Vector{T}, seq2::Vector{T}) where T <: DNASeq
         return false
     else
         for i in 1:length(seq1)
-            if seq1[i]!=seq2[i]
+            if !isequal(seq1[i],seq2[i])
                 return false
             end
         end
@@ -90,7 +90,7 @@ function Base.hash(seq1::Vector{T}) where T <: DNASeq
     if length(seq1)<=1
         return Base.hash(bitarr_to_int(vcat(seq1[1].bit1,seq1[1].bit2)))
     else
-        return Base.hash(bitarr_to_int(vcat(seq1[1].bit1,seq1[1].bit2,seq1[2].bit1,seq1[2].bit2)))
+        return Base.hash(bitarr_to_int(vcat(seq1[1].bit1,seq1[1].bit2,seq1[2].bit1,seq1[2].bit1,seq1[2].bit2)))
     end
 end
 
