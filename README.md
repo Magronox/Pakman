@@ -1,7 +1,7 @@
 # Pakman
-Pakman: Parallel Genome Assembly Algorithm
+Serial implementation of Pakman: Parallel Genome Assembly Algorithm
 
-graph_walk.jl is the final file. If you run that file then you can use all the functions. Here's a code for a simple test
+read_data.jl can be used to run the algorithm on data. 
 
 ```
 slen = 1000
