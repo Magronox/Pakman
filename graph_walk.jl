@@ -80,7 +80,7 @@ function walk!(G:: DefaultDict, pcontig:: Vector{DNASeq}, freq, offset_in_prefix
             next_mn = G[succ_neigh(mn.label[1],mn.suffixes[id])]
             next_prefix_id, ~ = find_succ_ext(G, mn.label, next_mn.label)
             @assert(succ_node == next_mn.label)
-            if freq_in_wire > 0 && !(pcontig in output)
+            if freq_in_wire > 0 #&& !(pcontig in output)
                 walk!(G, contig, freq_in_wire, next_off, next_mn, next_prefix_id, output);
             end 
                
