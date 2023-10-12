@@ -7,11 +7,11 @@ Base.@kwdef mutable struct macro_node
     #id = 0
     label = DNASeq#BitArray{1}(undef,64)
     prefixes = DefaultDict{Int64, Vector{DNASeq}}(DNASeq[])
-    prefix_counts = Dict{Int64, Tuple}()
+    prefix_counts = DefaultDict{Int64, Tuple}((-1,-1))
     prefixes_terminal = DefaultDict{Int64,Bool}(false)
     prefix_terminal = false
     suffixes = DefaultDict{Int64, Vector{DNASeq}}(DNASeq[])
-    suffix_counts = Dict{Int64,Tuple}()
+    suffix_counts = DefaultDict{Int64,Tuple}((-1,-1))
     suffix_terminal = false
     suffixes_terminal = DefaultDict{Int64,Bool}(false)
     wire_info = DefaultDict{Int64, Set{Tuple}}(Set())
@@ -125,14 +125,18 @@ function graph_creator(kmer_list :: DefaultDict, Alphabet :: Vector{Char}, C :: 
                         sid += 1
                     end
                 end
+                print("sh",u.prefixes,"\n\n")
                 wiring_prep(u)
-                setup_wiring!(u,C)
+                setup_wiring!(u)
                 G[u.label] = u
             end
             
             u = macro_node()
         end
         
+        
+        
+
     end
 #    pref = macro_node()
 #    pref.prefix_terminal = true
@@ -155,22 +159,19 @@ function wiring_prep(u :: macro_node)
 end
 
  
-function setup_wiring!(u :: macro_node,c :: Int64)
+function setup_wiring!(u :: macro_node)
     sc, pc = 0,0
     null_sid, null_pid = -1,-1
-    for (i,~) in u.suffixes
-        #if !u.suffixes_terminal[i]
-        if u.suffixes[i] != VTerminal
-            #print("ll\n",u.suffixes[i])
-            #@assert(!u.suffixes_terminal[i])
-            sc += last(u.suffix_counts[i])
-        end   
-    end
+    
 
+    for (i,~) in u.suffixes
+        if u.suffixes[i] != VTerminal
+            sc += last(u.suffix_counts[i])
+        end
+       
+    end
     for (i,~) in u.prefixes
-        #if !u.prefixes_terminal[i]
         if u.prefixes[i] != VTerminal
-            #@assert(!u.prefixes_terminal[i])
             pc += last(u.prefix_counts[i])
         end
     end
@@ -178,39 +179,31 @@ function setup_wiring!(u :: macro_node,c :: Int64)
     for (i,j) in u.suffixes
         if length(j) == 1 && j[1].len == 0
             null_sid = i
-            #if last(u.suffix_counts[i]) == -1
-            #    u.suffix_counts[i] = (1,max(pc-sc,0))
-            #    break
-            #end
-            u.suffix_counts[i] = (1, max(pc-sc,0))
+            if last(u.suffix_counts[i]) == -1
+                 u.suffix_counts[i] = (1,max(pc-sc,0))
+                 break
+            end
         end
     end
 
     for (i,j) in u.prefixes
         if length(j) == 1 && j[1].len == 0
             null_pid = i
-            #print("ppid",null_pid,"  ",j,"\n",u.prefixes_terminal[null_pid],"\n")
+            if last(u.prefix_counts[i]) == -1
+                u.prefix_counts[i] = (1, max(sc-pc,0))
+                break
+                @assert(null_pid == length(u.prefixes))
 
-            #if last(u.prefix_counts[i]) == -1
-            #    u.prefix_counts[i] = (1, max(sc-pc,0))
-            #    break
-            #    @assert(null_pid == length(u.prefixes))
-
-            #end
-            #if last(u.prefix_counts[i]) != -1
-            #    print("what\n")
-            #    print()
-            #end
-            u.prefix_counts[i] = (1,max(sc-pc,0))
+            end
         end
     end
 
     leftover = sc + last(u.suffix_counts[null_sid])
 
     last_largest_pid, prefix_begin_pos = -1,-1
-    wire_idx = 1
+    wire_idx = 0
     var_p, var_s = 0,0
-    top_p, top_s = 1,1
+    top_p, top_s = 0,0
     p_size = 0
     offset_in_suffix = zeros(Int64, length(u.suffixes))
 
@@ -219,18 +212,17 @@ function setup_wiring!(u :: macro_node,c :: Int64)
     
     indices_s = sort(indices_s, lt = Comp_rev(u.suffix_counts))
     indices_p = sort(indices_p, lt = Comp_rev(u.prefix_counts))
-    #print("sc",sc,"u.suffixc",u.suffix_counts[null_sid],"pc",pc,"prefxc",u.prefix_counts[null_pid],"np",null_pid,"ns",null_sid,"\n")
-    #print(sc + last(u.suffix_counts[null_sid])," ",pc + last(u.prefix_counts[null_pid]),"\n\n")
+
     @assert(sc + last(u.suffix_counts[null_sid]) == pc + last(u.prefix_counts[null_pid]))
    
     while leftover > 0
  
-        largest_sid = indices_s[top_s]
-        largest_pid = indices_p[top_p]
-        count = min(last(u.prefix_counts[largest_pid]) - var_p,last(u.suffix_counts[largest_sid]) - var_s)
-        push!(u.wire_info[wire_idx], (largest_sid, offset_in_suffix[largest_sid],count))
+        largest_sid = indices_s[top_s + 1]-1;
+        largest_pid = indices_p[top_p + 1]-1;
+        count = min(last(u.prefix_counts[largest_pid+1]) - var_p,last(u.suffix_counts[largest_sid+1]) - var_s)
+        push!(u.wire_info[wire_idx + 1], (largest_sid+1, offset_in_suffix[largest_sid + 1],count))
         if last_largest_pid != largest_pid
-            prefix_begin_pos = wire_idx
+            prefix_begin_pos = wire_idx 
             last_largest_pid = largest_pid
         end
         p_size += 1
@@ -238,16 +230,16 @@ function setup_wiring!(u :: macro_node,c :: Int64)
         leftover -= count
         var_p += count
         var_s += count
-        offset_in_suffix[largest_sid] += count
+        offset_in_suffix[largest_sid + 1] += count
 
-        if var_p == last(u.prefix_counts[largest_pid])
+        if var_p == last(u.prefix_counts[largest_pid + 1])
             var_p = 0
             top_p += 1
-            u.prefix_begin_info[largest_pid] = (prefix_begin_pos, p_size)
+            u.prefix_begin_info[largest_pid + 1] = (prefix_begin_pos , p_size )
             p_size = 0
         end
        
-        if var_s == last(u.suffix_counts[largest_sid])
+        if var_s == last(u.suffix_counts[largest_sid + 1])
             var_s = 0
             top_s += 1
         end
