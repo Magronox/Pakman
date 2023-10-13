@@ -56,7 +56,7 @@ function walk!(G:: DefaultDict, pcontig:: Vector{DNASeq}, freq, offset_in_prefix
         end
 
         off_in_wire = offset_in_prefix <= internal_off ? 0 : offset_in_prefix - internal_off 
-        next_off = offset_in_suffix + id -1
+        next_off = offset_in_suffix + id - 1
         freq_in_wire = min(freq_rem, sz - off_in_wire )
         contig = kmerge(pcontig, mn.suffixes[id])
         #print(@which kmerge(pcontig, mn.suffixes[id]))
