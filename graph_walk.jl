@@ -123,8 +123,6 @@ end
 
 
 
-""" contig list is defined globally, so you need to initialize it as an empty vector before running the algorithm. 
-This is because of the recursive nature of the walk algorithm."""
 
 """
 slen = 10
