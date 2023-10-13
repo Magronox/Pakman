@@ -125,7 +125,6 @@ function graph_creator(kmer_list :: DefaultDict, Alphabet :: Vector{Char}, C :: 
                         sid += 1
                     end
                 end
-                print("sh",u.prefixes,"\n\n")
                 wiring_prep(u)
                 setup_wiring!(u)
                 G[u.label] = u
