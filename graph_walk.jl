@@ -67,7 +67,7 @@ function walk!(G:: DefaultDict, pcontig:: Vector{DNASeq}, freq, offset_in_prefix
         #end
         if mn.suffixes_terminal[id]
             print("contig found\n")
-            push!(contig_list, pcontig)
+           # push!(contig_list, pcontig)
             push!(output, pcontig)
             continue
         else
