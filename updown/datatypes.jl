@@ -53,8 +53,8 @@ Base.@kwdef mutable struct edge
     succ_label = mn_label()
     succ_prefix = Vector{DNASeq}()
     counts = Dict{Int64, Tuple}()
-    succ_counts = Dict{Int64, Tuple}()
-    isPredTerminal = falses
+    #succ_counts = Dict{Int64, Tuple}()
+    isPredTerminal = false
     isSuccTerminal = false
     wire_info = DefaultDict{Int64, Set{Tuple}}(Set())
     prefix_begin_info = DefaultDict{Int64, Tuple}((-1,-1))
