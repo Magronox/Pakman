@@ -6,9 +6,9 @@ Terminal = DNASeq(zeros(Bool, 64),zeros(Bool, 64),0)
 VTerminal = [Terminal]
 
 STerminal = macro_node()
-STerminal.isTerminal = true
+STerminal.label.isTerminal = true
 PTerminal = macro_node()
-PTerminal.isTerminal = true
+PTerminal.label.isTerminal = true
 
 ### to get the maximum values in dictionary
 Base.isless(p::Pair, q::Pair) =
@@ -19,8 +19,8 @@ Base.isless(p::Pair, q::Pair) =
 ## this function is used for wiring:
 
 
-function Comp_rev(counts)
-    a(i,j) = (last(counts[i]) > last(counts[j])) || ((last(counts[i]) == last(counts[j])) && (first(counts[i])> first(counts[j])))
+function Comp_rev(edge_)
+    a(i,j) = (last(edge_[i].counts) > last(edge_[j].counts)) || ((last(edge_[i].counts) == last(edge_[j].counts)) && (first(edge_[i].counts)> first(edge_[j].counts)))
     return  a
 end
 
@@ -137,68 +137,72 @@ function wiring_prep(u :: macro_node, G :: DefaultDict{Int64, edge}, edge_id :: 
 end
 
 
-"""
-function setup_wiring!(u :: macro_node,)
-    sc, pc = 0,0
-    null_sid, null_pid = -1,-1
-    
 
-    for id in u.suffixes
-        if u.suffixes[i] != VTerminal
-            sc += last(u.suffix_counts[i])
+function setup_wiring!(u :: macro_node, G :: DefaultDict{Int64, edge})
+    
+    null_sid = 0
+    null_pid = 0
+    sc = 0
+    pc = 0
+    
+    for id in u.suffix_edge_ids
+        if !G[id].isSuccTerminal
+            sc += last(G[id].counts)
         end
        
     end
-    for (i,~) in u.prefixes
-        if u.prefixes[i] != VTerminal
-            pc += last(u.prefix_counts[i])
+    for id in u.prefix_edge_ids
+        if !G[id].isPredTerminal
+            pc += last(G[id].counts)
         end
     end
 
-    for (i,j) in u.suffixes
-        if length(j) == 1 && j[1].len == 0
-            null_sid = i
-            if last(u.suffix_counts[i]) == -1
-                 u.suffix_counts[i] = (1,max(pc-sc,0))
-                 break
-            end
-        end
-    end
-
-    for (i,j) in u.prefixes
-        if length(j) == 1 && j[1].len == 0
-            null_pid = i
-            if last(u.prefix_counts[i]) == -1
-                u.prefix_counts[i] = (1, max(sc-pc,0))
+    for id in u.suffix_edge_ids
+        if G[id].isSuccTerminal || G[id].isPredTerminal
+            null_sid = id
+            if last(G[id].counts) == -1
+                G[id].counts = (1,max(pc-sc,0))
                 break
-                @assert(null_pid == length(u.prefixes))
+            end
+        end
+    end
+
+    for id in u.prefix_edge_ids
+        if G[id].isPredTerminal || G[id].isSuccTerminal
+            null_pid = id
+            if last(G[id].counts) == -1
+                G[id].counts = (1, max(sc-pc,0))
+                break
 
             end
         end
     end
 
-    leftover = sc + last(u.suffix_counts[null_sid])
+    leftover = sc + last(G[null_sid].counts)
 
     last_largest_pid, prefix_begin_pos = -1,-1
     wire_idx = 0
     var_p, var_s = 0,0
     top_p, top_s = 0,0
     p_size = 0
-    offset_in_suffix = zeros(Int64, length(u.suffixes))
+    offset_in_suffix = zeros(Int64, length(u.suffix_edge_ids))
 
-    indices_s = collect(1:length(keys(u.suffixes)))
-    indices_p = collect(1:length(keys(u.prefixes)))
+    indices_s = collect(u.suffix_edge_ids)
+    indices_p = collect(u.prefix_edge_ids)
     
-    indices_s = sort(indices_s, lt = Comp_rev(u.suffix_counts))
-    indices_p = sort(indices_p, lt = Comp_rev(u.prefix_counts))
+    indices_s = sort(indices_s, lt = Comp_rev(G))
+    indices_p = sort(indices_p, lt = Comp_rev(G))
+    print(indices_s,"\n", indices_p)
+    @assert(false)
 
-    @assert(sc + last(u.suffix_counts[null_sid]) == pc + last(u.prefix_counts[null_pid]))
-   
+    @assert(sc + last(G[null_sid].counts) == pc + last(G[null_pid].counts))
+    s_map = 1:length(u.suffix_edge_ids) .=> sort(u.suffix_edge_ids)
+    p_map = 1:length(u.prefix_edge_ids) .=> sort(u.prefix_edge_ids)
     while leftover > 0
  
         largest_sid = indices_s[top_s + 1]-1;
         largest_pid = indices_p[top_p + 1]-1;
-        count = min(last(u.prefix_counts[largest_pid+1]) - var_p,last(u.suffix_counts[largest_sid+1]) - var_s)
+        count = min(last(G[p_map[largest_pid+1]].counts) - var_p,last(G[s_map[largest_sid+1]].counts) - var_s)
         push!(u.wire_info[wire_idx + 1], (largest_sid+1, offset_in_suffix[largest_sid + 1],count))
         if last_largest_pid != largest_pid
             prefix_begin_pos = wire_idx 
@@ -211,14 +215,14 @@ function setup_wiring!(u :: macro_node,)
         var_s += count
         offset_in_suffix[largest_sid + 1] += count
 
-        if var_p == last(u.prefix_counts[largest_pid + 1])
+        if var_p == last(G[p_map[largest_pid + 1]].counts)
             var_p = 0
             top_p += 1
             u.prefix_begin_info[largest_pid + 1] = (prefix_begin_pos , p_size )
             p_size = 0
         end
        
-        if var_s == last(u.suffix_counts[largest_sid + 1])
+        if var_s == last(G[s_map[largest_sid + 1]].counts)
             var_s = 0
             top_s += 1
         end
@@ -229,4 +233,3 @@ end
 ### test
 ### G = graph_creator(kmer_list,['A','C','G','T'], 5)
 
-"""
