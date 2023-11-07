@@ -5,10 +5,8 @@ Terminal = DNASeq(zeros(Bool, 64),zeros(Bool, 64),0)
 
 VTerminal = [Terminal]
 
-STerminal = macro_node()
-STerminal.label.isTerminal = true
-PTerminal = macro_node()
-PTerminal.label.isTerminal = true
+NTerminal = macro_node()
+NTerminal.label.isTerminal = true
 
 ### to get the maximum values in dictionary
 Base.isless(p::Pair, q::Pair) =
@@ -28,21 +26,23 @@ end
 function graph_creator(kmer_list :: DefaultDict, C :: Int64)
     G = DefaultDict{Int64,edge}(0)
     edge_id = 0
-    mn_list = Set{mn_label}()
+    mn_list = Set{macro_node}()
     vc = 0
-    empty!(STerminal.prefix_edge_ids)
-    empty!(PTerminal.suffix_edge_ids)
+    empty!(NTerminal.prefix_edge_ids)
+    #empty!(PTerminal.suffix_edge_ids)
+    push!(mn_list, NTerminal)
+    #push!(mn_list, PTerminal)
 
     for (xkey, ~) in kmer_list
         x_prime_list = read_mn_from_kmer(xkey)
         
         for x_prime in x_prime_list
 
-            if !([x_prime[1]] in mn_list)
-                print(x_prime)
+            if !([x_prime[1]] in labels(mn_list))
+                #print(x_prime)
                 x_prime_key,~ = x_prime
                 u = macro_node(x_prime_key, Set{Int64}(), Set{Int64}())
-                push!(mn_list, u.label)
+                push!(mn_list, u)
 
                 #u.label = [x_prime_key]
                 #u.id = id
@@ -59,13 +59,14 @@ function graph_creator(kmer_list :: DefaultDict, C :: Int64)
                         new_edge = edge()
                         new_edge.pred_label = neigh_label(c, u, "pred")
                         new_edge.succ_label = u
-                        new_edge.pred_suffix = DNASeq([u.label.bit1[end]], [u.label.bit2[end]], 1)
+                        new_edge.pred_suffix = [DNASeq([u.label.bit1[end]], [u.label.bit2[end]], 1)]
                         new_edge.succ_prefix = string_to_DNASeq(string(c))
 
                         if !(new_edge in values(G))
                             new_edge.edge_id  = edge_id + 1
                             u.prefix_edge_ids = edge_id + 1
                             edge_id += 1
+                            
                             vc = ceil(Int64,kmer_list[temp]/C)
                             new_edge.counts = (kmer_list[temp],vc)
                             G[edge_id] = new_edge
@@ -81,24 +82,26 @@ function graph_creator(kmer_list :: DefaultDict, C :: Int64)
                         new_edge.succ_label = neigh_label(c, u, "succ")
                         new_edge.pred_label = u
                         new_edge.pred_suffix = string_to_DNASeq(string(c))
-                        new_edge.succ_prefix = DNASeq([u.label.bit1[1]], [u.label.bit2[1]], 1)
+                        new_edge.succ_prefix = [DNASeq([u.label.bit1[1]], [u.label.bit2[1]], 1)]
+    
                         if !(new_edge in values(G))
                             new_edge.edge_id  = edge_id + 1
                             u.suffix_edge_ids = edge_id + 1
                             edge_id += 1
+                            
                             vc = ceil(Int64,kmer_list[temp]/C)
                             new_edge.counts = (kmer_list[temp],vc)
                             G[edge_id] = new_edge
                         end
                     end
                 end
-                wiring_prep(u :: macro_node, G :: DefaultDict{Int64, edge}, edge_id)
+                edge_id = wiring_prep(u :: macro_node, G :: DefaultDict{Int64, edge}, edge_id)
                 setup_wiring!(u :: macro_node, G :: DefaultDict{Int64, edge})
                 #G[u.label] = u
             end
             
             
-            
+
             #u = macro_node()
         end
         
@@ -119,19 +122,26 @@ end
 
 function wiring_prep(u :: macro_node, G :: DefaultDict{Int64, edge}, edge_id :: Int64)
     pTerminal = edge()
-    pTerminal.pred_label = PTerminal
+    pTerminal.edge_id = edge_id + 1
+    pTerminal.pred_label = NTerminal
     pTerminal.succ_label = u.label
     pTerminal.isPredTerminal = true
     pTerminal.counts = (-1,-1)
-    push!(PTerminal.suffix_edge_ids, edge_id + 1)
+    G[edge_id + 1] = pTerminal
+    push!(NTerminal.suffix_edge_ids, edge_id + 1)
     edge_id += 1
+    
+
     sTerminal = edge()
-    sTerminal.succ_label = STerminal
+    sTerminal.edge_id = edge_id + 1
+    sTerminal.succ_label = NTerminal
     sTerminal.pred_label = u.label
     sTerminal.isSuccTerminal = true
     sTerminal.counts = (-1,-1)
-    push!(STerminal.prefix_edge_ids, edge_id + 1)
+    G[edge_id+1] = sTerminal
+    push!(NTerminal.prefix_edge_ids, edge_id + 1)
     edge_id += 1
+    
     return edge_id
 
 end
@@ -177,7 +187,7 @@ function setup_wiring!(u :: macro_node, G :: DefaultDict{Int64, edge})
             end
         end
     end
-
+    print((null_sid in keys(G)),"\n")
     leftover = sc + last(G[null_sid].counts)
 
     last_largest_pid, prefix_begin_pos = -1,-1
@@ -192,7 +202,7 @@ function setup_wiring!(u :: macro_node, G :: DefaultDict{Int64, edge})
     
     indices_s = sort(indices_s, lt = Comp_rev(G))
     indices_p = sort(indices_p, lt = Comp_rev(G))
-    print(indices_s,"\n", indices_p)
+    print(indices_s,"\n", indices_p,"\n")
     @assert(false)
 
     @assert(sc + last(G[null_sid].counts) == pc + last(G[null_pid].counts))
@@ -231,5 +241,9 @@ function setup_wiring!(u :: macro_node, G :: DefaultDict{Int64, edge})
 
 end
 ### test
-### G = graph_creator(kmer_list,['A','C','G','T'], 5)
+### slen = 100
+### input = randstring("ACGT",slen)
+### seq = string_to_DNASeq(input)
+### kmer_list = read_kmer(seq, length(input),k)
+### G = graph_creator(kmer_list, 5)
 
