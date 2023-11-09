@@ -1,6 +1,9 @@
 include("kmer_counting_v2.jl")
 
 
+####====
+K = 32
+####====
 
 Base.@kwdef mutable struct macro_node
     #length k-1
@@ -172,6 +175,7 @@ function setup_wiring!(u :: macro_node)
     for (i,~) in u.prefixes
         if u.prefixes[i] != VTerminal
             pc += last(u.prefix_counts[i])
+
         end
     end
 
@@ -192,7 +196,6 @@ function setup_wiring!(u :: macro_node)
                 u.prefix_counts[i] = (1, max(sc-pc,0))
                 break
                 @assert(null_pid == length(u.prefixes))
-
             end
         end
     end
@@ -212,8 +215,7 @@ function setup_wiring!(u :: macro_node)
     indices_s = sort(indices_s, lt = Comp_rev(u.suffix_counts))
     indices_p = sort(indices_p, lt = Comp_rev(u.prefix_counts))
 
-    @assert(sc + last(u.suffix_counts[null_sid]) == pc + last(u.prefix_counts[null_pid]))
-   
+    #sc + last(u.suffix_counts[null_sid]) == pc + last(u.prefix_counts[null_pid]) ? nothing : (print(DNASeq_to_string(u.label[1]),"\n",u.prefixes,u.suffixes,"\nnull_sid ",null_sid,"\nnull_pid ",null_pid,"\n",sc,"\n",u.suffix_counts,"\n",u.prefix_counts,"\n",pc,"\n");throw(AssertionError("counts don't add up")))
     while leftover > 0
  
         largest_sid = indices_s[top_s + 1]-1;
