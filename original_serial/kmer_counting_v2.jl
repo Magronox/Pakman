@@ -14,6 +14,8 @@ end
 #    len :: Int64
 #end
 
+
+
 import Base.isequal, Base.hash
 
 
@@ -186,7 +188,7 @@ function kmer_seq( bit1 :: BitArray, bit2 :: BitArray, k :: Int64)
     output = DNASeq(Bit1, Bit2,k)
     output
 end
-
+"""
 function read_kmer(seq:: Vector, len::Int64, k :: Int64)
     ## k is the kmer length
     kmer_list = DefaultDict{DNASeq, Int64}(0)
@@ -207,7 +209,7 @@ function read_kmer(seq:: Vector, len::Int64, k :: Int64)
             if (i%64) != 0
                 ind2 += 1
             end
-            
+            print(ind1," ",ind2,"\n")
             if ind1==ind2
                
                 offset = i%64
@@ -218,10 +220,13 @@ function read_kmer(seq:: Vector, len::Int64, k :: Int64)
                 
                 if ind1==max_ind
                     #kmer = kmer_seq(seq[ind1].bit1[64-len_max_ind+offset-k+1:i], seq[ind1].bit2[64-len_max_ind+offset-k+1:64-len_max_ind+offset],k)
-                
+                    
                     kmer = kmer_seq(seq[ind1].bit1[64-len_max_ind+offset-k+1:64-len_max_ind+offset], seq[ind1].bit2[64-len_max_ind+offset-k+1:64-len_max_ind+offset],k)
+                    print(DNASeq_to_string(kmer),"\n")
                 else
+                    print(offset-k+1," ",offset,"\n")
                     kmer = kmer_seq(seq[ind1].bit1[offset-k+1:offset], seq[ind1].bit2[offset-k+1:offset],k)
+                    print(DNASeq_to_string(kmer),"\n")
                 end
                 
                 kmer_list[kmer] += 1
@@ -242,7 +247,7 @@ function read_kmer(seq:: Vector, len::Int64, k :: Int64)
                 else 
                     ind2 += 1
                 end
-                
+                print("offset ",offset_1," ",offset_2, "\n")
                 chunk11 = seq[ind1].bit1[offset_1:end]
                 chunk12 = seq[ind1].bit2[offset_1:end]
                 chunk21 = seq[ind2].bit1[1:offset_2]
@@ -250,20 +255,70 @@ function read_kmer(seq:: Vector, len::Int64, k :: Int64)
                 #print(chunk11,"\n",chunk21,"\n",i," ",ind1,ind2)
                 bit1 = vcat(chunk11,chunk21)
                 bit2 = vcat(chunk12,chunk22)
+                print(bit1,"\n",bit2,"\n\n")
                 kmer = kmer_seq(bit1,bit2,k)
+                print(DNASeq_to_string(kmer),"\n")
                 kmer_list[kmer] += 1
                
             end
         end
     else
-        print("error")
+        print("error\n")
     end
     kmer_list
+end
+"""
+
+function read_kmer(seq :: Vector, len :: Int64, k :: Int64)
+    @assert(k<64)
+    kmer_list = DefaultDict{DNASeq, Int64}(0)
+    if length(seq) == 1
+        if len<k
+            print("Error\n")
+        else
+            for i in 64-len+1:64-len+k
+                bit1 = seq[1].bit1[i:i+k-1]
+                bit2 = seq[1].bit2[i:i+k-1]
+                kmer_list[kmer_seq(bit1,bit2,k)] += 1
+            end
+            return kmer_list
+        end
+    else
+        len1 = seq[1].len
+        for i in 64-len1+1:64
+            ind2 = ((i+k-1)>64) ? 2 : 1
+            if ind2 == 1
+                bit1 = seq[1].bit1[i:i+k-1]
+                bit2 = seq[1].bit2[i:i+k-1]
+                kmer_list[kmer_seq(bit1,bit2,k)] += 1
+            else
+                bit1 = vcat(seq[1].bit1[i:end],seq[2].bit1[1:k+i-65])
+                bit2 = vcat(seq[1].bit2[i:end],seq[2].bit2[1:k+i-65])
+                kmer_list[kmer_seq(bit1,bit2,k)] += 1
+            end
+        end
+        for idx in 2:length(seq)
+            for i in 1:64
+                ind2 = ((i+k-1)>64) ? idx+1 : idx
+                if ind2 == idx
+                    bit1 = seq[idx].bit1[i:i+k-1]
+                    bit2 = seq[idx].bit2[i:i+k-1]
+                    kmer_list[kmer_seq(bit1,bit2,k)] += 1
+                elseif !(idx == length(seq))
+                    bit1 = vcat(seq[idx].bit1[i:end],seq[ind2].bit1[1:k+i-65])
+                    bit2 = vcat(seq[idx].bit2[i:end],seq[ind2].bit2[1:k+i-65])
+                    kmer_list[kmer_seq(bit1,bit2,k)] += 1
+                end
+            end
+        end
+        return kmer_list
+    end
+    print("Read Error\n")
 end
 
 
 function read_lmer_from_kmer(kmer :: DNASeq, l :: Int64)
-    k = kmer.len
+    k = kmer.len 
     @assert(l<k)
     ## l is length of the kmers we are searching for
     bit1 = kmer.bit1
