@@ -182,21 +182,23 @@ function setup_wiring!(u :: macro_node)
     for (i,j) in u.suffixes
         if length(j) == 1 && j[1].len == 0
             null_sid = i
-            if last(u.suffix_counts[i]) == -1
+            u.suffix_counts[i] = (1,max(pc-sc,0))
+            """if last(u.suffix_counts[i]) == -1
                  u.suffix_counts[i] = (1,max(pc-sc,0))
                  break
-            end
+            end"""
         end
     end
 
     for (i,j) in u.prefixes
         if length(j) == 1 && j[1].len == 0
             null_pid = i
-            if last(u.prefix_counts[i]) == -1
+            u.prefix_counts[i] = (1, max(sc-pc, 0))
+            """if last(u.prefix_counts[i]) == -1
                 u.prefix_counts[i] = (1, max(sc-pc,0))
                 break
                 @assert(null_pid == length(u.prefixes))
-            end
+            end"""
         end
     end
 
