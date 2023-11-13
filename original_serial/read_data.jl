@@ -1,7 +1,7 @@
 using FastaIO
 include("graph_walk.jl")
 
-file = "random_output_500_100_10.fasta"
+file = "../data/random_output_500_100_10.fasta"
 
 function read_and_walk(k :: Int64, number_of_compactions :: Int64, name :: String)
     kmer_list =  DefaultDict{DNASeq, Int64}(0)
@@ -25,10 +25,17 @@ function read_and_walk(k :: Int64, number_of_compactions :: Int64, name :: Strin
 
     print("Starting size ",length(G),"\n")
     G,ls = compact_graph!(G,number_of_compactions)
+    
     #print("length()",length(ls))
-    run_walk(G,ls)
+    
     #append!(contig_list,ls)
     
+    for i in ls
+        if !(i in contig_list)
+            append!(contig_list,i)
+        end
+    end
+    ls = run_walk(G,ls)
     for i in ls
         if !(i in contig_list)
             append!(contig_list,i)
@@ -57,12 +64,12 @@ function rw(k :: Int64, number_of_compactions :: Int64, name :: String)
         
         #break
     end
-    #end
-    for (t,v) in kmer_list
-        if v<2
-            delete!(kmer_list,t)
-        end
-    end   
+    
+    #for (t,v) in kmer_list
+    #    if v<2
+    #        delete!(kmer_list,t)
+    #    end
+    #end   
     coverage = 10
     global contig_list = []
     G = graph_creator(kmer_list,['A','C','G','T'], coverage)
