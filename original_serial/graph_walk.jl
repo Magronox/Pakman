@@ -20,7 +20,6 @@ function run_walk(G :: DefaultDict, pcontig_list:: Vector)
             freq = mn.prefix_counts[pid][2]
             contig = mn.prefixes[pid]
             contig = kmerge(contig, node)
-            
             walk!(G, contig, freq, 0, mn, pid, output)
         end
     end
@@ -67,6 +66,8 @@ function walk!(G:: DefaultDict, pcontig:: Vector{DNASeq}, freq, offset_in_prefix
         #end
         if mn.suffixes_terminal[id]
             print("contig found\n")
+            #print(pcontig,"\n\n")
+            #print(pcontig,"\n",mn.suffixes[id],"\n",DNASeq_to_string(contig[1]),"\n")
            # push!(contig_list, pcontig)
             push!(output, pcontig)
             continue
@@ -94,7 +95,7 @@ function walk!(G:: DefaultDict, pcontig:: Vector{DNASeq}, freq, offset_in_prefix
     end
 end
 
-
+"""
 function identify_begin_kmers(G, BeginMN)
 
     for (i,j) in G
@@ -107,6 +108,7 @@ function identify_begin_kmers(G, BeginMN)
 
 
 end
+"""
 
 ####TEST:
 ## slen = 1000
