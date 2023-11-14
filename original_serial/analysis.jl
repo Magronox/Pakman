@@ -1,6 +1,6 @@
 include("read_data.jl")
 using Graphs, GraphPlot
-output, G = read_and_walk(30,10,"ecoli_illumina_10x_part_.fasta")
+output, G = read_and_walk(30,10,pwd()*"/data/ecoli_illumina_10x_part_.fasta")
 
 
 
@@ -84,4 +84,19 @@ function check_suf_pref(G :: DefaultDict{Vector{DNASeq}})
         end
     end
     return true
+end
+
+
+function show_graph(G :: DefaultDict{Vector{DNASeq}, macro_node})
+    for (i,j) in G
+        print("Node ", DNASeq_to_string(i[1]),"\nPrefixes ")
+        for (ii,jj) in j.prefixes
+            print(DNASeq_to_string(jj[1])," ",j.prefixes_terminal[ii]," ",j.prefix_counts[ii],"\t")
+        end
+        print("\nSuffixes ")
+        for (ii,jj) in j.suffixes
+            print(DNASeq_to_string(jj[1])," ",j.suffixes_terminal[ii]," ", j.suffix_counts[ii],"\t")
+        end
+        print("\n")
+    end
 end
