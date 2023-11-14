@@ -598,6 +598,7 @@ function iterate_pack(G :: DefaultDict, IS_ :: Set)
                 for (itr_s,~,count) in G[node].wire_info[last(G[node].prefix_begin_info[k])]
                 
                     if G[node].prefixes_terminal[itr_p] && G[node].suffixes_terminal[itr_s]
+                        print("pcontig found\n",kmerge(kmerge(G[node].prefixes[itr_p],node),G[node].suffixes[itr_s]),"\n\n")
                         push!(pcontig_list,kmerge(kmerge(G[node].prefixes[itr_p],node),G[node].suffixes[itr_s]))
                     else
                         if length(G[node].suffixes[itr_s]) > 0 && !G[node].suffixes_terminal[itr_s] 
@@ -629,6 +630,7 @@ function iterate_pack(G :: DefaultDict, IS_ :: Set)
                                     elseif length(new_ext)>1 && new_ext[1] == Terminal
                                         new_ext = new_ext[2:end]
                                     end
+                                    print("pred node", DNASeq_to_string(pred_node[1])," node ", DNASeq_to_string(node[1])," ",new_ext,"\n")
                                     push!(transfer_nodeInfo[copy(node)] , (copy(pred_node),copy(pred_ext),new_ext,min(first(G[node].prefix_counts[itr_p]),first(G[node].suffix_counts[itr_s])),count,1,ssid,itr_s,new_pnode_type,pred_ext_in))
 
                                 end
@@ -660,7 +662,7 @@ function iterate_pack(G :: DefaultDict, IS_ :: Set)
                                 #    print("iterate info\n")
                                 #    print(new_ext,"\n",G[string_to_DNASeq("AAACTTCAACTCCCAAGCAACCAATTTATAT")].prefixes[ppid],"\n",G[node].prefixes[itr_p],"\n\n")
                                 #end
-
+                                print("succ node", DNASeq_to_string(succ_node[1])," node ", DNASeq_to_string(node[1])," ",new_ext,"\n")
                                 push!(transfer_nodeInfo[copy(node)] , (copy(succ_node),copy(succ_ext),new_ext,min(first(G[node].suffix_counts[itr_s]),first(G[node].prefix_counts[itr_p])),count,0,ppid,itr_p,new_snode_type,succ_ext_in))
                                 
                             end
