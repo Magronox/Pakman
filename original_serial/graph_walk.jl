@@ -7,10 +7,12 @@ function run_walk(G :: DefaultDict, pcontig_list:: Vector)
     begin_kmer_list = copy(keys(G))
     pid = -1
     for node in begin_kmer_list
+        #print(" node ", DNASeq_to_string(node[1]),"\n")
         mn = G[node]
         for i in 1:length(mn.prefixes_terminal)
             if mn.prefixes_terminal[i] == true
                 pid = i
+                #print("pid ",i,"\n")
                 break
             end
 
@@ -20,6 +22,7 @@ function run_walk(G :: DefaultDict, pcontig_list:: Vector)
             freq = mn.prefix_counts[pid][2]
             contig = mn.prefixes[pid]
             contig = kmerge(contig, node)
+            #print("calling walk with contig ",contig, " , freq", freq, "for node ", DNASeq_to_string(mn.label[1]),"\n\n")
             walk!(G, contig, freq, 0, mn, pid, output)
         end
     end
@@ -60,16 +63,16 @@ function walk!(G:: DefaultDict, pcontig:: Vector{DNASeq}, freq, offset_in_prefix
         contig = kmerge(pcontig, mn.suffixes[id])
         #print(@which kmerge(pcontig, mn.suffixes[id]))
         #assert(false)
-        #print(DNASeq_to_string(contig[en]),"\n\n")
+        print(DNASeq_to_string(contig[end]),"\n\n")
         #if pcontig in output
         #    continue
         #end
         if mn.suffixes_terminal[id]
             print("contig found\n")
-            #print(pcontig,"\n\n")
+            #print(kmerge(pcontig,mn.suffixes[id]),"\n\n")
             #print(pcontig,"\n",mn.suffixes[id],"\n",DNASeq_to_string(contig[1]),"\n")
            # push!(contig_list, pcontig)
-            push!(output, pcontig)
+            push!(output, kmerge(pcontig,mn.suffixes[id]))
             continue
         else
             succ_ext = mn.suffixes[id]
@@ -77,7 +80,7 @@ function walk!(G:: DefaultDict, pcontig:: Vector{DNASeq}, freq, offset_in_prefix
             succ_node = succ_neigh(key[1],succ_ext)
             #ppid, succ_ext = find_succ_ext(G,key[1], succ_node[1])
             if !(succ_node in keys(G))
-            #    print("Error key not found\n")
+                print("Error key not found\n")
                 continue
             end
             next_mn = G[succ_neigh(mn.label[1],mn.suffixes[id])]
