@@ -35,8 +35,8 @@ function read_and_walk(k :: Int64, number_of_compactions :: Int64, name :: Strin
             append!(contig_list,i)
         end
     end
-    ls = run_walk(G,ls)
-    for i in ls
+    output = run_walk(G,ls)
+    for i in output
         if !(i in contig_list)
             append!(contig_list,i)
         end
@@ -103,8 +103,8 @@ function read_and_walk_string(k :: Int64, number_of_compactions :: Int64, seq ::
     print("Starting size ",length(G),"\n")
     G,ls = compact_graph!(G,number_of_compactions)
     #print("length()",length(ls))
-    run_walk(G,ls)
-    #append!(contig_list,ls)
+    output = run_walk(G,ls)
+    append!(contig_list,ls)
     
     for i in ls
         if !(i in contig_list)
@@ -113,6 +113,12 @@ function read_and_walk_string(k :: Int64, number_of_compactions :: Int64, seq ::
     end
     deleteat!(contig_list, findall(x->x==Any[],contig_list))
 
+    for i in output
+        if !(i in contig_list)
+            append!(contig_list,i)
+        end
+    end
+    deleteat!(contig_list, findall(x->x==Any[],contig_list))
 
     #print("\n new contig list\n",contig_list)
     unique(contig_list), G
