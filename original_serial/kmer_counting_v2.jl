@@ -276,7 +276,8 @@ function read_kmer(seq :: Vector, len :: Int64, k :: Int64)
         if len<k
             print("Error\n")
         else
-            for i in 64-len+1:64-len+k
+            for i in 64-len+1:64-k+1
+                #print(i,"\n")
                 bit1 = seq[1].bit1[i:i+k-1]
                 bit2 = seq[1].bit2[i:i+k-1]
                 kmer_list[kmer_seq(bit1,bit2,k)] += 1
@@ -304,7 +305,9 @@ function read_kmer(seq :: Vector, len :: Int64, k :: Int64)
                     bit1 = seq[idx].bit1[i:i+k-1]
                     bit2 = seq[idx].bit2[i:i+k-1]
                     kmer_list[kmer_seq(bit1,bit2,k)] += 1
-                elseif !(idx == length(seq))
+                elseif (idx == length(seq))
+                    break
+                else
                     bit1 = vcat(seq[idx].bit1[i:end],seq[ind2].bit1[1:k+i-65])
                     bit2 = vcat(seq[idx].bit2[i:end],seq[ind2].bit2[1:k+i-65])
                     kmer_list[kmer_seq(bit1,bit2,k)] += 1
