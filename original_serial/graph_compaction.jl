@@ -405,7 +405,7 @@ function kmerge(kmer_1::Vector{DNASeq}, kmer_2::DNASeq, k::Int64, l :: Int64 )
     return res
 end
 
-function kmerge(kmer_1::DNASeq, kmer_2:: Vector{DNASeq}, k::Int64, l :: Int64 )
+function kmerge(kmer_1::DNASeq, kmer_2:: Vector{DNASeq})
     return vcat(kmerge(kmer_1,kmer_2[1],kmer_1.len+kmer_2[1].len),kmer_2[2:end])
 end
 
@@ -630,7 +630,7 @@ function iterate_pack(G :: DefaultDict, IS_ :: Set)
                                     elseif length(new_ext)>1 && new_ext[1] == Terminal
                                         new_ext = new_ext[2:end]
                                     end
-                                    print("pred node", DNASeq_to_string(pred_node[1])," node ", DNASeq_to_string(node[1])," ",new_ext,"\n")
+                                    #print("pred node", DNASeq_to_string(pred_node[1])," node ", DNASeq_to_string(node[1])," ",new_ext,"\n")
                                     push!(transfer_nodeInfo[copy(node)] , (copy(pred_node),copy(pred_ext),new_ext,min(first(G[node].prefix_counts[itr_p]),first(G[node].suffix_counts[itr_s])),count,1,ssid,itr_s,new_pnode_type,pred_ext_in))
 
                                 end
@@ -662,7 +662,7 @@ function iterate_pack(G :: DefaultDict, IS_ :: Set)
                                 #    print("iterate info\n")
                                 #    print(new_ext,"\n",G[string_to_DNASeq("AAACTTCAACTCCCAAGCAACCAATTTATAT")].prefixes[ppid],"\n",G[node].prefixes[itr_p],"\n\n")
                                 #end
-                                print("succ node", DNASeq_to_string(succ_node[1])," node ", DNASeq_to_string(node[1])," ",new_ext,"\n")
+                                #print("succ node", DNASeq_to_string(succ_node[1])," node ", DNASeq_to_string(node[1])," ",new_ext,"\n")
                                 push!(transfer_nodeInfo[copy(node)] , (copy(succ_node),copy(succ_ext),new_ext,min(first(G[node].suffix_counts[itr_s]),first(G[node].prefix_counts[itr_p])),count,0,ppid,itr_p,new_snode_type,succ_ext_in))
                                 
                             end
