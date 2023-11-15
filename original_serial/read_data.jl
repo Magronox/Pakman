@@ -3,7 +3,7 @@ include("graph_walk.jl")
 
 file = "../data/random_output_500_100_10.fasta"
 
-function read_and_walk(k :: Int64, number_of_compactions :: Int64, name :: String)
+function read_and_walk(k :: Int64, number_of_compactions :: Int64, name :: String, analysis :: Bool = false)
     kmer_list =  DefaultDict{DNASeq, Int64}(0)
     
     #FastaReader(name) do fr
@@ -35,7 +35,7 @@ function read_and_walk(k :: Int64, number_of_compactions :: Int64, name :: Strin
             append!(contig_list,i)
         end
     end
-    output = run_walk(G,ls)
+    output = run_walk(G,ls,analysis)
     for i in output
         if !(i in contig_list)
             append!(contig_list,i)
@@ -81,7 +81,7 @@ function rw(k :: Int64, number_of_compactions :: Int64, name :: String)
     contig_list, G
 end
 
-function read_and_walk_string(k :: Int64, number_of_compactions :: Int64, seq :: String)
+function read_and_walk_string(k :: Int64, number_of_compactions :: Int64, seq :: String, analysis :: Bool = false)
     kmer_list =  DefaultDict{DNASeq, Int64}(0)
     
     #FastaReader(name) do fr
@@ -103,7 +103,7 @@ function read_and_walk_string(k :: Int64, number_of_compactions :: Int64, seq ::
     print("Starting size ",length(G),"\n")
     G,ls = compact_graph!(G,number_of_compactions)
     #print("length()",length(ls))
-    output = run_walk(G,ls)
+    output = run_walk(G,ls, analysis)
     append!(contig_list,ls)
     
     for i in ls
