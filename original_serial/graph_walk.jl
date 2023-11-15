@@ -2,7 +2,7 @@ include("graph_compaction.jl")
 
 
 
-function run_walk(G :: DefaultDict, pcontig_list:: Vector)
+function run_walk(G :: DefaultDict, pcontig_list:: Vector, analysis::Bool=false)
     output = Set()
     begin_kmer_list = copy(keys(G))
     pid = -1
@@ -10,7 +10,7 @@ function run_walk(G :: DefaultDict, pcontig_list:: Vector)
         #print(" node ", DNASeq_to_string(node[1]),"\n")
         mn = G[node]
         for i in 1:length(mn.prefixes_terminal)
-            if mn.prefixes_terminal[i] == true
+            if mn.prefixes_terminal[i]
                 pid = i
                 #print("pid ",i,"\n")
                 break
@@ -22,8 +22,11 @@ function run_walk(G :: DefaultDict, pcontig_list:: Vector)
             freq = mn.prefix_counts[pid][2]
             contig = mn.prefixes[pid]
             contig = kmerge(contig, node)
+            if analysis
+                print("walk node ", DNASeq_to_string(node[1]),"\n")
+            end
             #print("calling walk with contig ",contig, " , freq", freq, "for node ", DNASeq_to_string(mn.label[1]),"\n\n")
-            walk!(G, contig, freq, 0, mn, pid, output)
+            walk!(G, contig, freq, 0, mn, pid, output,analysis)
         end
     end
     "for contig in pcontig_list
@@ -33,7 +36,7 @@ function run_walk(G :: DefaultDict, pcontig_list:: Vector)
     return output
 end
 contig_list = []
-function walk!(G:: DefaultDict, pcontig:: Vector{DNASeq}, freq, offset_in_prefix :: Int64 , mn :: macro_node, pid :: Int64, output :: Set)
+function walk!(G:: DefaultDict, pcontig:: Vector{DNASeq}, freq, offset_in_prefix :: Int64 , mn :: macro_node, pid :: Int64, output :: Set, analysis :: Bool = false)
     #pc_size = (length(contig)-1)*64 + contig[1].len
     freq_rem = freq
     internal_off = 0
@@ -45,7 +48,7 @@ function walk!(G:: DefaultDict, pcontig:: Vector{DNASeq}, freq, offset_in_prefix
     #if isempty(mn.wire_info[pid])
     #    print("pid ",pid,"\n",mn.wire_info,"\n", mn.prefix_begin_info,"\n\n")
     #end
-
+    
     sdf = 0
     for (id,offset_in_suffix,count) in mn.wire_info[pid]
         sdf += 1
@@ -60,10 +63,11 @@ function walk!(G:: DefaultDict, pcontig:: Vector{DNASeq}, freq, offset_in_prefix
         off_in_wire = offset_in_prefix <= internal_off ? 0 : offset_in_prefix - internal_off 
         next_off = offset_in_suffix + id - 1
         freq_in_wire = min(freq_rem, sz - off_in_wire )
+        
         contig = kmerge(pcontig, mn.suffixes[id])
         #print(@which kmerge(pcontig, mn.suffixes[id]))
         #assert(false)
-        print(DNASeq_to_string(contig[end]),"\n\n")
+        #print(DNASeq_to_string(contig[end]),"\n\n")
         #if pcontig in output
         #    continue
         #end
@@ -83,10 +87,14 @@ function walk!(G:: DefaultDict, pcontig:: Vector{DNASeq}, freq, offset_in_prefix
                 print("Error key not found\n")
                 continue
             end
+            
             next_mn = G[succ_neigh(mn.label[1],mn.suffixes[id])]
             next_prefix_id, ~ = find_succ_ext(G, mn.label, next_mn.label)
             @assert(succ_node == next_mn.label)
-            if freq_in_wire > 0 && !(pcontig in output)
+            if freq_in_wire > 0 #&& !(pcontig in output)
+                if analysis
+                    print("continuing the walk with node ", DNASeq_to_string(next_mn.label[1]),"\n")
+                end
                 walk!(G, contig, freq_in_wire, next_off, next_mn, next_prefix_id, output);
             end 
                
