@@ -9,7 +9,7 @@ C = 5
 
 function compact_graph!( G :: DefaultDict{Vector{DNASeq},macro_node}, compaction_times :: Int64)
     num_mn = length(G)
-    contigs = []
+    #contigs = []
     pcontig_list= []
     temp = []
     #transfer_nodeInfo = []
@@ -74,7 +74,7 @@ function compact_graph!( G :: DefaultDict{Vector{DNASeq},macro_node}, compaction
 
     
         num_mn = length(G)
-        append!(contigs,pcontig_list)
+        #append!(contigs,pcontig_list)
         
         for i in rewire_list
             if (i in keys(G))
