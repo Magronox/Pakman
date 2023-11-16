@@ -30,11 +30,11 @@ function read_and_walk(k :: Int64, number_of_compactions :: Int64, name :: Strin
     
     #append!(contig_list,ls)
     
-    for i in ls
+    """for i in ls
         if !(i in contig_list)
             append!(contig_list,i)
         end
-    end
+    end"""
     output = run_walk(G,ls,analysis)
     for i in output
         if !(i in contig_list)
@@ -104,13 +104,13 @@ function read_and_walk_string(k :: Int64, number_of_compactions :: Int64, seq ::
     G,ls = compact_graph!(G,number_of_compactions)
     #print("length()",length(ls))
     output = run_walk(G,ls, analysis)
-    append!(contig_list,ls)
-    
+    #append!(contig_list,ls)
+    """
     for i in ls
         if !(i in contig_list)
             append!(contig_list,i)
         end
-    end
+    end"""
     deleteat!(contig_list, findall(x->x==Any[],contig_list))
 
     for i in output
@@ -126,7 +126,29 @@ end
 
 
 
+function print_output(output)
 
+    for i in output
+        if typeof(i)==DNASeq
+            #print("1\n")
+            print(DNASeq_to_string(i))
+        #elseif typeof(i)==Vector{DNASeq}
+        #    print("2\n")
+        #    for j in i
+        #        print(DNASeq_to_string(j),"\n")
+        #    end
+        else
+            print("\n")
+            for j in i
+                for jj in j
+                    print(DNASeq_to_string(jj),"\n")
+                end
+            end
+        end
+        print("\n\n")
+    end
+
+end
 
 
 ## Test:
