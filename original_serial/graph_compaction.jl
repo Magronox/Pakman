@@ -338,7 +338,7 @@ function kmerge(kmer_1::DNASeq, kmer_2::DNASeq, k::Int64, l :: Int64 )
 end
 
 function kmerge(kmer_1::Union{Vector{DNASeq},DNASeq}, kmer_2::Union{Vector{DNASeq},DNASeq})
-    if typeof(kmer_1) == Vector{DNASeq} 
+    """if typeof(kmer_1) == Vector{DNASeq} 
         k = (length(kmer_1)-1)*64 + kmer_1[1].len
         if kmer_1[end] == Terminal && kmer_1[1] != Terminal
             print("Middle Terminal Error\n")
@@ -355,13 +355,53 @@ function kmerge(kmer_1::Union{Vector{DNASeq},DNASeq}, kmer_2::Union{Vector{DNASe
         end
     else
         l = kmer_2.len
+    end"""
+    if typeof(kmer_2) == Vector{DNASeq}
+        return vcat(kmerge_(kmer_1,kmer_2[1]),kmer_2[2:end])
+    else return kmerge_(kmer_1,kmer_2)
     end
-    
-    return kmerge(kmer_1,kmer_2,k,l)
 end
 
-function kmerge(kmer_1::Vector{DNASeq}, kmer_2::DNASeq, k::Int64, l :: Int64 )
+function kmerge_(kmer_1::Vector{DNASeq}, kmer_2::DNASeq)
+    l1 = (length(kmer_1)-1)*64+kmer_1[1].len
+    l2 = kmer_2.len
+    if (l1+l2)<=64
+        bit11 = kmer_1[1].bit1[64-l1+1:end]
+        bit12 = kmer_1[1].bit2[64-l1+1:end]
+        bit21 = kmer_2.bit1[64-l2+1:end]
+        bit22 = kmer_2.bit2[64-l2+1:end]
+        return kmer_seq(vcat(bit11,bit21),vcat(bit12,bit22),l1+l2)
+    else
+        output_ = Vector{DNASeq}()
+        cut_idx = 100
+        idx = length(kmer_1)
+        push!(output_, kmer_seq(vcat(kmer_1[end].bit1[l2+1:end],kmer_2.bit1[64-l2+1:end]),vcat(kmer_1[end].bit2[l2+1:end],kmer_2.bit2[64-l2+1:end]),64))
+        while(idx > 2)
+            pushfirst!(output_,kmer_seq(vcat(kmer_1[idx-1].bit1[l2+1:end],kmer_1[idx].bit1[1:l2]),vcat(kmer_1[idx-1].bit2[l2+1:end],kmer_1[idx].bit2[1:l2]),64))
+            idx-=1;
+        end
+        
+        if (64-kmer_1[1].len+1)<(l2+1)
+            if length(kmer_1)> 1 
+                pushfirst!(output_,kmer_seq(vcat(kmer_1[1].bit1[l2+1:end],kmer_1[2].bit1[1:l2]),vcat(kmer_1[1].bit2[l2+1:end],kmer_1[2].bit2[1:l2]),64))
+            end
+        pushfirst!(output_,kmer_seq(kmer_1[1].bit1[64-kmer_1[1].len+1:l2],kmer_1[1].bit2[64-kmer_1[1].len+1:l2],l2-64+kmer_1[1].len))
+        else
+            pushfirst!(output_,kmer_seq(vcat(kmer_1[1].bit1[64-kmer_1[1].len+1:end],kmer_1[2].bit1[1:l2]),vcat(kmer_1[1].bit2[64-kmer_1[1].len+1:end],kmer_1[2].bit2[1:l2]),l2+kmer_1[1].len))
+        end
+        return output_
+    end
+
+
+
+end
+
+"""
+function kmerge_(kmer_1::Vector{DNASeq}, kmer_2::DNASeq  )
+    k = (length(kmer_1)-1)*64+kmer_1[1].len
+    l = kmer_2.len
     k1 = k%64
+    print(" k ",k,"k1 ",k1, " l ",l)
     res = []
     range = k>=(64-l) ? (l+1:64) : 64-k+1:64
     bit11 = kmer_1[end].bit1[range]
@@ -370,12 +410,15 @@ function kmerge(kmer_1::Vector{DNASeq}, kmer_2::DNASeq, k::Int64, l :: Int64 )
     bit22 = kmer_2.bit2[64-l+1:end]
 
     if k == k1
+        print("here\n")
         pushfirst!(res, kmer_seq(vcat(bit11,bit21), vcat(bit12,bit22),length(range)+l))
     else
+        print("her2\n")
         pushfirst!(res, kmer_seq(vcat(bit11,bit21), vcat(bit12,bit22),64))
     end
 
    for i in length(kmer_1):-1:3
+        print("sher3\n")
         bit11 = kmer_1[i-1].bit1[l+1:end]
         bit12 = kmer_1[i-1].bit2[l+1:end]
         bit21 = kmer_1[i].bit1[1:l]
@@ -385,6 +428,7 @@ function kmerge(kmer_1::Vector{DNASeq}, kmer_2::DNASeq, k::Int64, l :: Int64 )
 
     
     if l+k1 > 64
+        print("fok\n")
         bit11 = kmer_1[1].bit1[l+1:end]
         bit12 = kmer_1[1].bit2[l+1:end]
         bit21 = kmer_1[2].bit1[1:l]
@@ -395,6 +439,7 @@ function kmerge(kmer_1::Vector{DNASeq}, kmer_2::DNASeq, k::Int64, l :: Int64 )
         bit12 = kmer_1[1].bit2[end-k1+1:l]
         pushfirst!(res,kmer_seq(bit11,bit12,l+k1-64))
     else
+        print("chock\n")
         bit11 = kmer_1[1].bit1[end-k1+1:end]
         bit12 = kmer_1[1].bit2[end-k1+1:end]
         bit21 = kmer_1[2].bit1[1:l]
@@ -404,7 +449,7 @@ function kmerge(kmer_1::Vector{DNASeq}, kmer_2::DNASeq, k::Int64, l :: Int64 )
     res = Vector{DNASeq}(res)
     return res
 end
-
+"""
 function kmerge(kmer_1::DNASeq, kmer_2:: Vector{DNASeq})
     return vcat(kmerge(kmer_1,kmer_2[1],kmer_1.len+kmer_2[1].len),kmer_2[2:end])
 end
