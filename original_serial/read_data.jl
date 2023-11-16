@@ -141,7 +141,7 @@ function print_output(output)
             print("\n")
             for j in i
                 for jj in j
-                    print(DNASeq_to_string(jj),"\n")
+                    print(DNASeq_to_string(jj))
                 end
             end
         end
