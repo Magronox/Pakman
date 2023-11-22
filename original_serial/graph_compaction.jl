@@ -19,20 +19,7 @@ function compact_graph!( G :: DefaultDict{Vector{DNASeq},macro_node}, compaction
         #print("first\n",G[string_to_DNASeq("CGCAAATAGGGCGTGGTCCACACAATATCCG")].suffixes,"\n")
         #print("third\n", G[string_to_DNASeq("AAACTTCAACTCCCAAGCAACCAATTTATAT")].prefixes,"\n")
         #print("fourth\n",G[string_to_DNASeq("CTAAACTTCAACTCCCAAGCAACCAATTTAT")].suffixes,"\n")
-        """print("fifth\n")
-        print(G[string_to_DNASeq("ATCCGCCCTTTTTATTTAAGAAGCATAGAGG")].wire_info,G[string_to_DNASeq("ATCCGCCCTTTTTATTTAAGAAGCATAGAGG")].prefix_begin_info,"\n",G[string_to_DNASeq("ATCCGCCCTTTTTATTTAAGAAGCATAGAGG")].suffixes,"\n",G[string_to_DNASeq("ATCCGCCCTTTTTATTTAAGAAGCATAGAGG")].prefixes,"\n\n\n")
-        for (j,i) in G[string_to_DNASeq("ATCCGCCCTTTTTATTTAAGAAGCATAGAGG")].suffixes
-            if (succ_neigh(string_to_DNASeq("ATCCGCCCTTTTTATTTAAGAAGCATAGAGG")[1],i) in keys(G))
-                print(G[succ_neigh(string_to_DNASeq("ATCCGCCCTTTTTATTTAAGAAGCATAGAGG")[1],i)].wire_info,"\n",i,"\n",DNASeq_to_string(succ_neigh(string_to_DNASeq("ATCCGCCCTTTTTATTTAAGAAGCATAGAGG")[1],i)[1]))
-                print(G[succ_neigh(string_to_DNASeq("ATCCGCCCTTTTTATTTAAGAAGCATAGAGG")[1],i)].prefixes,"\n",G[succ_neigh(string_to_DNASeq("ATCCGCCCTTTTTATTTAAGAAGCATAGAGG")[1],i)].suffixes)
-            else
-                print("shefte\n",succ_neigh(string_to_DNASeq("ATCCGCCCTTTTTATTTAAGAAGCATAGAGG")[1],i),"\n",i,"\n")
-            end
-            print(succ_neigh(string_to_DNASeq("ATCCGCCCTTTTTATTTAAGAAGCATAGAGG")[1],i))
-            print("kefte\n\n\n")
-            #print(G[succ_neigh(string_to_DNASeq("ATCCGCCCTTTTTATTTAAGAAGCATAGAGG")[1],i)].wire_info,"\n")
-        end
-        """
+        
         
         i_s = IS(G)
         if length(G)==length(i_s)
