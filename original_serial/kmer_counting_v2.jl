@@ -108,10 +108,10 @@ end
 
 function char_to_int( c :: Union{Char, String})
     #@assert(sizeof(c)==1)
-    if     only(c) == 'A' return 0,0
-    elseif only(c) == 'C' return 0,1
-    elseif only(c) == 'G' return 1,0
-    elseif only(c) == 'T' return 1,1
+    if     only(c) == 'A' return false, false
+    elseif only(c) == 'C' return false, true
+    elseif only(c) == 'G' return true , false
+    elseif only(c) == 'T' return true , true
     else return 42,42
     end
 end
@@ -137,8 +137,8 @@ function string_to_DNASeq(seq :: String)
     
     bitseq = Vector{DNASeq}()
     for i in 1:n-1
-        temp_1 = zeros(Int64,64)
-        temp_2 = zeros(Int64,64)
+        temp_1 = zeros(Bool,64)
+        temp_2 = zeros(Bool,64)
         temp = string_to_int(seq[64*(i-1)+m+1:64*i+m])
         temp_1[65-length(temp[:,1]):64] = temp[:,1]
         temp_2[65-length(temp[:,2]):64] = temp[:,2]
@@ -146,8 +146,8 @@ function string_to_DNASeq(seq :: String)
         push!(bitseq,DNASeq(BitArray(vec(temp_1)),BitArray(vec(temp_2)),64))
     end
     #print(",",m,"\n")
-    temp_1 = zeros(Int64,64)
-    temp_2 = zeros(Int64,64)
+    temp_1 = zeros(Bool,64)
+    temp_2 = zeros(Bool,64)
     temp = string_to_int(seq[1:m])
     temp_1[65-length(temp[:,1]):64] = temp[:,1]
     temp_2[65-length(temp[:,2]):64] = temp[:,2]

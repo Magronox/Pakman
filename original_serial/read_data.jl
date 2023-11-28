@@ -1,51 +1,28 @@
 using FastaIO
 include("graph_walk.jl")
-
-file = "../data/random_output_500_100_10.fasta"
+coverage = 10
+name = "/Users/amir/Documents/Purdue/UpDown/Pakman Git/Pakman/original_serial/random_output_500_100_10.fasta"
 
 function read_and_walk(k :: Int64, number_of_compactions :: Int64, name :: String, analysis :: Bool = false)
     kmer_list =  DefaultDict{DNASeq, Int64}(0)
-    
-    #FastaReader(name) do fr
-    #    
     for (~,seq) in FastaReader(name)
         input = string_to_DNASeq(seq)
+        #print(seq,"\n")
         temp_kmers = read_kmer(input, input[1].len + (length(input)-1)*64,k)
         for (t,v) in temp_kmers
             kmer_list[t] += v
         end
-        #break
+
     end
-    #end
-        
+
     
-    coverage = 10
-    global contig_list = []
+    global output = Set()
     G = graph_creator(kmer_list,['A','C','G','T'], coverage)
 
     print("Starting size ",length(G),"\n")
     G,ls = compact_graph!(G,number_of_compactions)
-    
-    #print("length()",length(ls))
-    
-    #append!(contig_list,ls)
-    
-    """for i in ls
-        if !(i in contig_list)
-            append!(contig_list,i)
-        end
-    end"""
     output = run_walk(G,ls,analysis)
-    for i in output
-        if !(i in contig_list)
-            append!(contig_list,i)
-        end
-    end
-    deleteat!(contig_list, findall(x->x==Any[],contig_list))
-
-
-    #print("\n new contig list\n",contig_list)
-    unique(contig_list), G
+    output, G
 end
 
 
@@ -94,10 +71,8 @@ function read_and_walk_string(k :: Int64, number_of_compactions :: Int64, seq ::
     
     
     #end
-        
     
-    coverage = 5
-    global contig_list = []
+    global output = Set()
     G = graph_creator(kmer_list,['A','C','G','T'], coverage)
 
     print("Starting size ",length(G),"\n")
@@ -111,17 +86,7 @@ function read_and_walk_string(k :: Int64, number_of_compactions :: Int64, seq ::
             append!(contig_list,i)
         end
     end"""
-    deleteat!(contig_list, findall(x->x==Any[],contig_list))
-
-    for i in output
-        if !(i in contig_list)
-            append!(contig_list,i)
-        end
-    end
-    deleteat!(contig_list, findall(x->x==Any[],contig_list))
-
-    #print("\n new contig list\n",contig_list)
-    unique(contig_list), G
+    output, G
 end
 
 
@@ -140,12 +105,13 @@ function print_output(output)
         else
             print("\n")
             for j in i
-                for jj in j
-                    print(DNASeq_to_string(jj))
-                end
+                #for jj in j
+                #    print(DNASeq_to_string(jj))
+                #end
+                print(DNASeq_to_string(j))
             end
+            print("\n")
         end
-        print("\n\n")
     end
 
 end
