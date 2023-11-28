@@ -100,6 +100,9 @@ function graph_creator(kmer_list :: DefaultDict, Alphabet :: Vector{Char}, C :: 
                 for c in Alphabet
                     
                     temp = kmerge(c,x_prime_key, false)
+                    
+                    #print(DNASeq_to_string(x_prime_key),"\t")
+                    #print("CAATGCGGAAGGGTATAGGCTTTCTCGTCA\n")
                     node = [DNASeq(vcat(zeros(Int64,64-k+1),temp.bit1[end-k+1:end-1]),vcat(zeros(Int64,64-k+1),temp.bit2[end-k+1:end-1]),k-1)]
                     if  temp in keys(kmer_list) #&& node!= [x_prime_key]
                         u.prefixes[pid] = string_to_DNASeq(string(c))
@@ -108,8 +111,7 @@ function graph_creator(kmer_list :: DefaultDict, Alphabet :: Vector{Char}, C :: 
                         u.prefix_counts[pid] = (kmer_list[temp],vc)
                         u.prefix_terminal = false
                         pid += 1
-                        #print(x_prime_key,"\n")
-                        #print("st", string_to_DNASeq)
+                        
                         
                     end
 
