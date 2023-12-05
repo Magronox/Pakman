@@ -1,6 +1,6 @@
 using FastaIO
 include("graph_walk.jl")
-coverage = 10
+coverage = 100
 name = "/Users/amir/Documents/Purdue/UpDown/Pakman Git/Pakman/original_serial/random_output_500_100_10.fasta"
 
 function read_and_walk(k :: Int64, number_of_compactions :: Int64, name :: String, analysis :: Bool = false)
@@ -22,41 +22,19 @@ function read_and_walk(k :: Int64, number_of_compactions :: Int64, name :: Strin
     print("Starting size ",length(G),"\n")
     G,ls = compact_graph!(G,number_of_compactions)
     output = run_walk(G,ls,analysis)
-    output, G
-end
-
-
-function rw(k :: Int64, number_of_compactions :: Int64, name :: String)
-
-    kmer_list =  DefaultDict{DNASeq, Int64}(0)
     
-    #FastaReader(name) do fr
-    #    
-    for (~,seq) in FastaReader(name)
-        input = string_to_DNASeq(seq)
-        temp_kmers = read_kmer(input, input[1].len + (length(input)-1)*64,k)
-        for (t,v) in temp_kmers
-            kmer_list[t] += v
-        end
         
-        #break
-    end
-    
-    #for (t,v) in kmer_list
-    #    if v<2
-    #        delete!(kmer_list,t)
-    #    end
-    #end   
-    coverage = 10
-    global contig_list = []
-    G = graph_creator(kmer_list,['A','C','G','T'], coverage)
-
-    print("Starting size ",length(G),"\n")
-    G,ls = compact_graph!(G,number_of_compactions)
-    run_walk(G,ls)
-    #print("\n new contig list\n",contig_list)
-    contig_list, G
+    contig = Vector{DNASeq}()
+    no = -1000
+    for i in output
+        if ((length(i)-1)*64+i[1].len)>no
+            contig = i
+            no = (length(i)-1)*64+i[1].len
+        end
+    end  
+    contig, G
 end
+
 
 function read_and_walk_string(k :: Int64, number_of_compactions :: Int64, seq :: String, analysis :: Bool = false)
     kmer_list =  DefaultDict{DNASeq, Int64}(0)
@@ -79,13 +57,14 @@ function read_and_walk_string(k :: Int64, number_of_compactions :: Int64, seq ::
     G,ls = compact_graph!(G,number_of_compactions)
     #print("length()",length(ls))
     output = run_walk(G,ls, analysis)
-    #append!(contig_list,ls)
-    """
-    for i in ls
-        if !(i in contig_list)
-            append!(contig_list,i)
+    contig = Vector{DNASeq}()
+    no = -1000
+    for i in output
+        if ((length(i)-1)*64+i[1].len)>no
+            contig = i
+            no = (length(i)-1)*64+i[1].len
         end
-    end"""
+    end
     output, G
 end
 

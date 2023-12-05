@@ -110,8 +110,8 @@ function char_to_int( c :: Union{Char, String})
     #@assert(sizeof(c)==1)
     if     only(c) == 'A' return false, false
     elseif only(c) == 'C' return false, true
-    elseif only(c) == 'G' return true , false
-    elseif only(c) == 'T' return true , true
+    elseif only(c) == 'G' return true , true
+    elseif only(c) == 'T' return true , false
     else return 42,42
     end
 end
@@ -167,9 +167,9 @@ end
         elseif bit1[i]==0 && bit2[i]==1
             str = str* "C"
         elseif bit1[i]==1 && bit2[i]==1
-            str = str*"T"
-        else
             str = str*"G"
+        else
+            str = str*"T"
         end
     end
     str
@@ -188,86 +188,6 @@ function kmer_seq( bit1 :: BitArray, bit2 :: BitArray, k :: Int64)
     output = DNASeq(Bit1, Bit2,k)
     output
 end
-"""
-function read_kmer(seq:: Vector, len::Int64, k :: Int64)
-    ## k is the kmer length
-    kmer_list = DefaultDict{DNASeq, Int64}(0)
-    max_ind = length(seq)
-    len_max_ind = len%64
-    if len_max_ind == 0
-        len_max_ind = 64
-    end
-    if (len>=k)
-        for i in k:len
-
-            ind1 = floor(Int64,(i-k+1)/64)
-            if (i-k+1)%64 !=0 
-                ind1 += 1
-            end
-
-            ind2 = floor(Int64, i/64)
-            if (i%64) != 0
-                ind2 += 1
-            end
-            print(ind1," ",ind2,"\n")
-            if ind1==ind2
-               
-                offset = i%64
-                if offset==0
-                    offset = 64
-                end
-                
-                
-                if ind1==max_ind
-                    #kmer = kmer_seq(seq[ind1].bit1[64-len_max_ind+offset-k+1:i], seq[ind1].bit2[64-len_max_ind+offset-k+1:64-len_max_ind+offset],k)
-                    
-                    kmer = kmer_seq(seq[ind1].bit1[64-len_max_ind+offset-k+1:64-len_max_ind+offset], seq[ind1].bit2[64-len_max_ind+offset-k+1:64-len_max_ind+offset],k)
-                    print(DNASeq_to_string(kmer),"\n")
-                else
-                    print(offset-k+1," ",offset,"\n")
-                    kmer = kmer_seq(seq[ind1].bit1[offset-k+1:offset], seq[ind1].bit2[offset-k+1:offset],k)
-                    print(DNASeq_to_string(kmer),"\n")
-                end
-                
-                kmer_list[kmer] += 1
-
-            else
-               
-                ind1 = floor(Int64,(i-k+1)/64)
-                offset_1 = (i-k+1)%64
-                if offset_1 == 0
-                     offset_1 = 64
-                else
-                    ind1 += 1
-                end
-                ind2 = floor(Int64, i/64)
-                offset_2 = i%64
-                if offset_2 == 0
-                    offset_2 = 64
-                else 
-                    ind2 += 1
-                end
-                print("offset ",offset_1," ",offset_2, "\n")
-                chunk11 = seq[ind1].bit1[offset_1:end]
-                chunk12 = seq[ind1].bit2[offset_1:end]
-                chunk21 = seq[ind2].bit1[1:offset_2]
-                chunk22 = seq[ind2].bit2[1:offset_2]
-                #print(chunk11,"\n",chunk21,"\n",i," ",ind1,ind2)
-                bit1 = vcat(chunk11,chunk21)
-                bit2 = vcat(chunk12,chunk22)
-                print(bit1,"\n",bit2,"\n\n")
-                kmer = kmer_seq(bit1,bit2,k)
-                print(DNASeq_to_string(kmer),"\n")
-                kmer_list[kmer] += 1
-               
-            end
-        end
-    else
-        print("error\n")
-    end
-    kmer_list
-end
-"""
 
 function read_kmer(seq :: Vector, len :: Int64, k :: Int64)
     @assert(k<64)
@@ -336,6 +256,7 @@ function read_lmer_from_kmer(kmer :: DNASeq, l :: Int64)
 
     lmer_list
 end
+
 
 
 ## Test:
