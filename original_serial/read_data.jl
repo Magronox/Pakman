@@ -1,6 +1,5 @@
 using FastaIO
 include("graph_walk.jl")
-include("analysis.jl")
 coverage = 100
 name = "/Users/amir/Documents/Purdue/UpDown/Pakman Git/Pakman/original_serial/random_output_500_100_10.fasta"
 
