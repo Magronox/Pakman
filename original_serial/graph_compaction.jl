@@ -15,11 +15,6 @@ function compact_graph!( G :: DefaultDict{Vector{DNASeq},macro_node}, compaction
     #transfer_nodeInfo = []
 
     for t in 1:compaction_times
-        #print("second\n",G[string_to_DNASeq("CAAATAGGGCGTGGTCCACACAATATCCGCC")].prefixes,"\n")
-        #print("first\n",G[string_to_DNASeq("CGCAAATAGGGCGTGGTCCACACAATATCCG")].suffixes,"\n")
-        #print("third\n", G[string_to_DNASeq("AAACTTCAACTCCCAAGCAACCAATTTATAT")].prefixes,"\n")
-        #print("fourth\n",G[string_to_DNASeq("CTAAACTTCAACTCCCAAGCAACCAATTTAT")].suffixes,"\n")
-        
         
         i_s = IS(G)
         if length(G)==length(i_s)
@@ -33,13 +28,6 @@ function compact_graph!( G :: DefaultDict{Vector{DNASeq},macro_node}, compaction
         end
 
         temp, transfer_nodeInfo = iterate_pack(G,i_s)
-        
-        
-        #for (i,j) in transfer_nodeInfo
-        #    print(DNASeq_to_string(i[1]),"\n")
-        #    print(j,"\n\n")
-        #end
-
         push!(pcontig_list,temp)
         
         
@@ -383,60 +371,6 @@ function kmerge_(kmer_1::Vector{DNASeq}, kmer_2::DNASeq)
 
 end
 
-"""
-function kmerge_(kmer_1::Vector{DNASeq}, kmer_2::DNASeq  )
-    k = (length(kmer_1)-1)*64+kmer_1[1].len
-    l = kmer_2.len
-    k1 = k%64
-    print(" k ",k,"k1 ",k1, " l ",l)
-    res = []
-    range = k>=(64-l) ? (l+1:64) : 64-k+1:64
-    bit11 = kmer_1[end].bit1[range]
-    bit12 = kmer_1[end].bit2[range]
-    bit21 = kmer_2.bit1[64-l+1:end]
-    bit22 = kmer_2.bit2[64-l+1:end]
-
-    if k == k1
-        print("here\n")
-        pushfirst!(res, kmer_seq(vcat(bit11,bit21), vcat(bit12,bit22),length(range)+l))
-    else
-        print("her2\n")
-        pushfirst!(res, kmer_seq(vcat(bit11,bit21), vcat(bit12,bit22),64))
-    end
-
-   for i in length(kmer_1):-1:3
-        print("sher3\n")
-        bit11 = kmer_1[i-1].bit1[l+1:end]
-        bit12 = kmer_1[i-1].bit2[l+1:end]
-        bit21 = kmer_1[i].bit1[1:l]
-        bit22 = kmer_1[i].bit2[1:l]
-        pushfirst!(res, kmer_seq(vcat(bit11,bit21), vcat(bit12,bit22),64))
-    end
-
-    
-    if l+k1 > 64
-        print("fok\n")
-        bit11 = kmer_1[1].bit1[l+1:end]
-        bit12 = kmer_1[1].bit2[l+1:end]
-        bit21 = kmer_1[2].bit1[1:l]
-        bit22 = kmer_1[2].bit2[1:l]
-        pushfirst!(res, kmer_seq(vcat(bit11,bit21), vcat(bit12,bit22),64))
-
-        bit11 = kmer_1[1].bit1[end-k1+1:l]
-        bit12 = kmer_1[1].bit2[end-k1+1:l]
-        pushfirst!(res,kmer_seq(bit11,bit12,l+k1-64))
-    else
-        print("chock\n")
-        bit11 = kmer_1[1].bit1[end-k1+1:end]
-        bit12 = kmer_1[1].bit2[end-k1+1:end]
-        bit21 = kmer_1[2].bit1[1:l]
-        bit22 = kmer_1[2].bit2[1:l]
-        pushfirst!(res,kmer_seq(vcat(bit11,bit21),vcat(bit12,bit22),l+k1))
-    end
-    res = Vector{DNASeq}(res)
-    return res
-end
-"""
 function kmerge(kmer_1::DNASeq, kmer_2:: Vector{DNASeq})
     return vcat(kmerge(kmer_1,kmer_2[1],kmer_1.len+kmer_2[1].len),kmer_2[2:end])
 end
@@ -690,11 +624,6 @@ function iterate_pack(G :: DefaultDict, IS_ :: Set)
                                     new_ext = new_ext[2:end]
                                 end
 
-                                #if succ_node == string_to_DNASeq("AAACTTCAACTCCCAAGCAACCAATTTATAT")
-                                #    print("iterate info\n")
-                                #    print(new_ext,"\n",G[string_to_DNASeq("AAACTTCAACTCCCAAGCAACCAATTTATAT")].prefixes[ppid],"\n",G[node].prefixes[itr_p],"\n\n")
-                                #end
-                                #print("succ node", DNASeq_to_string(succ_node[1])," node ", DNASeq_to_string(node[1])," ",new_ext,"\n")
                                 push!(transfer_nodeInfo[copy(node)] , (copy(succ_node),copy(succ_ext),new_ext,min(first(G[node].suffix_counts[itr_s]),first(G[node].prefix_counts[itr_p])),count,0,ppid,itr_p,new_snode_type,succ_ext_in))
                                 
                             end
@@ -719,10 +648,6 @@ function serialize_transfer!(G :: DefaultDict, transfer_nodeInfo :: DefaultDict{
     for node in keys(transfer_nodeInfo)
         for i in transfer_nodeInfo[node]
             (n_node,ext,new_ext,visit_count,ccount,direction,id,pid,type,ext_in) = i
-            #if n_node == string_to_DNASeq("AAACTTCAACTCCCAAGCAACCAATTTATAT")
-            #    print("serialize\n",new_ext,"\n")
-            #end
-            #direction == 1 ? print("whether\n",ext == G[n_node].suffixes[id]) : print("whether\n",ext == G[n_node].prefixes[id],"\n")
             
             push!(rewirelist,n_node)
             
