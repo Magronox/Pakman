@@ -1,7 +1,7 @@
 using FastaIO
 include("graph_walk.jl")
 coverage = 100
-name = "/Users/amir/Documents/Purdue/UpDown/Pakman Git/Pakman/original_serial/random_output_500_100_10.fasta"
+name = "/data/random_output_500_100_10.fasta"
 
 function read_and_walk(k :: Int64, number_of_compactions :: Int64, name :: String, analysis :: Bool = false)
     kmer_list =  DefaultDict{DNASeq, Int64}(0)
