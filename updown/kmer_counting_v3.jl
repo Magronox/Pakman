@@ -24,7 +24,7 @@ end
 
 
 function Base.hash(seq :: T) where T <: mn_label
-    return Base.hash(bitarr_to_int(vcat(seq1.bit1,seq1.bit2)))
+    return Base.hash(bitarr_to_int(vcat(seq.bit1,seq.bit2)))
 end
 
 
@@ -80,7 +80,9 @@ function Base.isless(seq1 :: T, seq2 :: T) where T<: DNASeq
 end
 
 function Base.isless(seq1 :: Vector{T}, seq2 :: Vector{T}) where T<: DNASeq
-
+    if length(seq2)== 0
+        return false
+    end
     for j in 1:length(seq1)
         temp1 = seq1[j]#[(i%2==1)*seq1[j].bit1[((i+1)÷2)+(i%2==0)-(i==128)]+seq1[j].bit2[(i÷2)+(i%2==1)]*(i%2==0) for i in 1:128]
         temp2 = seq2[j]#[(i%2==1)*seq2[j].bit1[((i+1)÷2)+(i%2==0)-(i==128)] + seq2[j].bit2[(i÷ 2)+(i%2==1)]*(i%2==0) for i in 1:128]
@@ -254,19 +256,7 @@ function seq_to_int64(seq,s=Int64(0))
 end
 
 function read_from_kmer(kmer :: DNASeq)
-    k = kmer.len 
-    @assert(l<k)
-    ## l is length of the kmers we are searching for
-    bit1 = kmer.bit1
-    bit2 = kmer.bit2
-    lmer_list = DefaultDict{DNASeq, Int64}(0)
-   
-   
-    for i in 64-k+1:64-l+1
-        lmer = kmer_seq(bit1[i:i+l-1],bit2[i:i+l-1],l)
-        lmer_list[lmer] += 1
-    end
-
+    k = kmer.len
     return mn_label(kmer.bit1[1:31],kmer.bit2[1:31]), mn_label(kmer.bit1[2:32],kmer.bit2[2:32])
 
 end
