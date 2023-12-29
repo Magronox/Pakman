@@ -1,7 +1,6 @@
 # Pakman
 Serial implementation of Pakman: Parallel Genome Assembly Algorithm
 
-read_data.jl can be used to run the algorithm on data. 
 
 ```
 slen = 1000
